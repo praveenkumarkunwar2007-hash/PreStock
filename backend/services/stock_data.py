@@ -181,20 +181,32 @@ class StockDataService:
         clean_sym = symbol.strip().upper()
         df = self.get_all_features_df()
 
+        candidates = [clean_sym]
+        if "." not in clean_sym:
+            candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
+
         stock_df = pd.DataFrame()
+        resolved_sym = clean_sym
         if not df.empty:
-            stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
+            for cand in candidates:
+                match = df[df["Symbol"].astype(str).str.upper() == cand]
+                if not match.empty:
+                    stock_df = match.sort_values("Date")
+                    resolved_sym = cand
+                    break
 
         # Fallback to live data for IPO or new stocks
         if stock_df.empty:
             live_df = self._fetch_and_compute_live(clean_sym)
             if live_df is not None and not live_df.empty:
                 stock_df = live_df
+                resolved_sym = str(live_df.iloc[-1].get("Symbol", clean_sym)).upper()
 
         if stock_df.empty:
             return None
 
         last_row = stock_df.iloc[-1].to_dict()
+        last_row["Symbol"] = resolved_sym
 
         # Safe close price for normalization
         try:
@@ -218,9 +230,17 @@ class StockDataService:
         clean_sym = symbol.strip().upper()
         df = self.get_all_features_df()
 
+        candidates = [clean_sym]
+        if "." not in clean_sym:
+            candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
+
         stock_df = pd.DataFrame()
         if not df.empty:
-            stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
+            for cand in candidates:
+                match = df[df["Symbol"].astype(str).str.upper() == cand]
+                if not match.empty:
+                    stock_df = match.sort_values("Date")
+                    break
 
         # Fallback to live data for IPO or new stocks
         if stock_df.empty:
@@ -235,6 +255,8 @@ class StockDataService:
         records = []
         for _, row in tail.iterrows():
             date_val = str(row.get("Date", "")).split()[0]
+            sma_20_val = row.get("SMA_20")
+            sma_50_val = row.get("SMA_50")
             records.append({
                 "date": date_val,
                 "open": float(row.get("Open", 0.0) or 0.0),
@@ -242,9 +264,13 @@ class StockDataService:
                 "low": float(row.get("Low", 0.0) or 0.0),
                 "close": float(row.get("Close", 0.0) or 0.0),
                 "volume": float(row.get("Volume", 0.0) or 0.0),
-                "rsi_14": float(row.get("RSI_14", 0.0) or 0.0),
-                "daily_return": float(row.get("Daily_Return", 0.0) or 0.0),
-                "volatility_20d": float(row.get("Volatility_20D", 0.0) or 0.0)
+                "sma_20": round(float(sma_20_val), 2) if pd.notna(sma_20_val) and sma_20_val is not None else None,
+                "sma_50": round(float(sma_50_val), 2) if pd.notna(sma_50_val) and sma_50_val is not None else None,
+                "rsi_14": round(float(row.get("RSI_14", 0.0) or 0.0), 2),
+                "daily_return": round(float(row.get("Daily_Return", 0.0) or 0.0), 4),
+                "return_5d": round(float(row.get("Return_5D", 0.0) or 0.0), 4),
+                "volatility_20d": round(float(row.get("Volatility_20D", 0.0) or 0.0), 4),
+                "volume_ratio": round(float(row.get("Volume_Ratio", 1.0) or 1.0), 2)
             })
         return records
 

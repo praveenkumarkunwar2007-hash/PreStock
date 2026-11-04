@@ -449,8 +449,11 @@
 
       <div id="stockMetrics" style="margin-top: 1rem;">
         <div class="metric-row"><span>Latest Close:</span><span class="metric-val" id="metricClose">-</span></div>
+        <div class="metric-row"><span>1-Day Return:</span><span class="metric-val" id="metricReturn1D">-</span></div>
+        <div class="metric-row"><span>5-Day Return:</span><span class="metric-val" id="metricReturn5D">-</span></div>
         <div class="metric-row"><span>14D RSI:</span><span class="metric-val" id="metricRSI">-</span></div>
         <div class="metric-row"><span>20D Volatility:</span><span class="metric-val" id="metricVol">-</span></div>
+        <div class="metric-row"><span>Volume vs 20D Avg:</span><span class="metric-val" id="metricVolumeRatio">-</span></div>
       </div>
 
       <div id="predictionBox" class="prediction-box pred-neutral">
@@ -691,8 +694,33 @@
       }
     });
 
+    // Enter / Escape key navigation in search box
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const query = searchInput.value.trim().toUpperCase();
+        if (!query) return;
+
+        // Check if there is an item in the dropdown
+        const firstItem = searchDropdown.querySelector(".search-item");
+        if (firstItem && searchDropdown.style.display !== "none") {
+          firstItem.click();
+        } else {
+          selectStock(query, query);
+        }
+      } else if (e.key === "Escape") {
+        searchDropdown.style.display = "none";
+      }
+    });
+
     async function runPrediction() {
-      const symbol = document.getElementById("stockSelect").value;
+      // Prioritize search input if user typed a symbol but didn't click dropdown
+      const searchVal = document.getElementById("stockSearchInput").value.trim().toUpperCase();
+      let symbol = document.getElementById("stockSelect").value;
+      if (searchVal && searchVal !== symbol) {
+        selectStock(searchVal, searchVal);
+        return;
+      }
       if (!symbol) return;
 
       const btn = document.getElementById("predictBtn");
@@ -707,6 +735,30 @@
           const data = await predRes.json();
           updatePredictionUI(data);
           updateRationaleUI(data.rationale);
+
+          if (data.latest_close) document.getElementById("metricClose").textContent = data.latest_close.toFixed(2);
+          if (data.daily_return !== undefined) {
+            const ret1 = (data.daily_return * 100).toFixed(2);
+            const isPos = data.daily_return >= 0;
+            document.getElementById("metricReturn1D").innerHTML = `<span style="color: ${isPos ? 'var(--profit)' : 'var(--loss)'}; font-weight: 600;">${isPos ? '+' : ''}${ret1}%</span>`;
+          }
+          if (data.return_5d !== undefined) {
+            const ret5 = (data.return_5d * 100).toFixed(2);
+            const isPos = data.return_5d >= 0;
+            document.getElementById("metricReturn5D").innerHTML = `<span style="color: ${isPos ? 'var(--profit)' : 'var(--loss)'}; font-weight: 600;">${isPos ? '+' : ''}${ret5}%</span>`;
+          }
+          if (data.rsi_14 !== undefined) {
+            let rsiBadge = "Neutral";
+            if (data.rsi_14 >= 70) rsiBadge = "Overbought";
+            else if (data.rsi_14 <= 30) rsiBadge = "Oversold";
+            document.getElementById("metricRSI").innerHTML = `${data.rsi_14.toFixed(1)} <span style="font-size: 0.72rem; opacity: 0.8;">(${rsiBadge})</span>`;
+          }
+          if (data.volatility_20d !== undefined) {
+            document.getElementById("metricVol").textContent = (data.volatility_20d * 100).toFixed(1) + "%";
+          }
+          if (data.volume_ratio !== undefined) {
+            document.getElementById("metricVolumeRatio").textContent = `${data.volume_ratio.toFixed(2)}x`;
+          }
         } else {
           let errDetail = "Could not fetch sufficient historical data for this ticker.";
           try {
@@ -717,8 +769,9 @@
           document.getElementById("predConfidence").textContent = `${errDetail} (Requires at least 5 completed trading sessions. For Indian stocks, try appending .NS e.g. ${symbol.replace(/\.NS/i, '')}.NS)`;
           const box = document.getElementById("predictionBox");
           box.className = "prediction-box pred-neutral";
-          document.getElementById("rationaleText").innerHTML = `<p style="color: var(--text-muted);">No sufficient historical trading data found for <strong>${symbol}</strong>. Newly listed IPOs require at least 5 days of market trading history.</p>`;
-          document.getElementById("rationaleFactors").innerHTML = "";
+          document.getElementById("rationaleSummary").innerHTML = `<span style="color: var(--loss);">⚠️ Insufficient data for <strong>${symbol}</strong>:</span> ${errDetail}. If this is an Indian stock, make sure to add the <code>.NS</code> or <code>.BO</code> suffix.`;
+          document.getElementById("bullishSignalsContainer").innerHTML = `<div class="signal-item"><div class="signal-desc">No data available to compute indicators.</div></div>`;
+          document.getElementById("bearishSignalsContainer").innerHTML = `<div class="signal-item"><div class="signal-desc">No data available to compute indicators.</div></div>`;
         }
 
         // 2. Fetch history for chart
@@ -865,36 +918,79 @@
     function updateChart(history, symbol) {
       const labels = history.map(h => h.date.split("T")[0]);
       const prices = history.map(h => h.close);
+      const sma20 = history.map(h => (h.sma_20 !== undefined && h.sma_20 !== null) ? h.sma_20 : null);
+      const sma50 = history.map(h => (h.sma_50 !== undefined && h.sma_50 !== null) ? h.sma_50 : null);
 
       const ctx = document.getElementById("priceChart").getContext("2d");
       if (chartInstance) chartInstance.destroy();
+
+      const datasets = [{
+        label: `${symbol || 'Stock'} Close`,
+        data: prices,
+        borderColor: "#38bdf8",
+        backgroundColor: "rgba(56, 189, 248, 0.08)",
+        fill: true,
+        tension: 0.2,
+        borderWidth: 2.2,
+        pointRadius: 2.5,
+        pointHoverRadius: 6
+      }];
+
+      if (sma20.some(v => v !== null && v > 0)) {
+        datasets.push({
+          label: "20D SMA (Short-term Trend)",
+          data: sma20,
+          borderColor: "#f59e0b",
+          borderDash: [5, 4],
+          fill: false,
+          tension: 0.2,
+          borderWidth: 1.8,
+          pointRadius: 0
+        });
+      }
+
+      if (sma50.some(v => v !== null && v > 0)) {
+        datasets.push({
+          label: "50D SMA (Medium-term Trend)",
+          data: sma50,
+          borderColor: "#a855f7",
+          borderDash: [3, 3],
+          fill: false,
+          tension: 0.2,
+          borderWidth: 1.8,
+          pointRadius: 0
+        });
+      }
 
       chartInstance = new Chart(ctx, {
         type: "line",
         data: {
           labels: labels,
-          datasets: [{
-            label: `${symbol || 'Stock'} Closing Price`,
-            data: prices,
-            borderColor: "#38bdf8",
-            backgroundColor: "rgba(56, 189, 248, 0.1)",
-            fill: true,
-            tension: 0.25,
-            borderWidth: 2
-          }]
+          datasets: datasets
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          interaction: {
+            mode: "index",
+            intersect: false
+          },
           plugins: {
             legend: {
               display: true,
-              labels: { color: "#94a3b8" }
+              labels: { color: "#94a3b8", boxWidth: 16 }
+            },
+            tooltip: {
+              backgroundColor: "rgba(15, 23, 42, 0.95)",
+              titleColor: "#f8fafc",
+              bodyColor: "#cbd5e1",
+              borderColor: "#334155",
+              borderWidth: 1
             }
           },
           scales: {
-            x: { grid: { color: "#334155" }, ticks: { color: "#94a3b8" } },
-            y: { grid: { color: "#334155" }, ticks: { color: "#94a3b8" } }
+            x: { grid: { color: "#1e293b" }, ticks: { color: "#94a3b8" } },
+            y: { grid: { color: "#1e293b" }, ticks: { color: "#94a3b8" } }
           }
         }
       });

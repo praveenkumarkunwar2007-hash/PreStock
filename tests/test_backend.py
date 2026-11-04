@@ -22,6 +22,15 @@ class TestBackend(unittest.TestCase):
         self.assertIn("summary", res["rationale"])
         self.assertIn("bullish_signals", res["rationale"])
         self.assertIn("bearish_signals", res["rationale"])
+        self.assertIn("return_5d", res)
+        self.assertIn("daily_return", res)
+        self.assertIn("rsi_14", res)
+
+    def test_predict_symbol_suffix_resolution(self):
+        # Should resolve RELIANCE to RELIANCE.NS automatically
+        res = predict_by_symbol("RELIANCE")
+        self.assertEqual(res["symbol"], "RELIANCE.NS")
+        self.assertIn("prediction", res)
 
     def test_predict_custom_payload(self):
         payload = CustomFeatureInput(
@@ -51,6 +60,8 @@ class TestBackend(unittest.TestCase):
         self.assertEqual(res["symbol"], "AAPL")
         self.assertEqual(len(res["history"]), 10)
         self.assertIn("volatility_20d", res["history"][0])
+        self.assertIn("sma_20", res["history"][0])
+        self.assertIn("return_5d", res["history"][0])
 
     def test_stock_news(self):
         news = get_stock_news("AAPL", limit=4)

@@ -43,12 +43,18 @@ def predict_by_symbol(symbol: str):
 
     try:
         result = predictor.predict_features(latest_features)
-        result["symbol"] = symbol.upper()
+        resolved_symbol = str(latest_features.get("Symbol", symbol)).upper()
+        result["symbol"] = resolved_symbol
         result["date"] = str(latest_features.get("Date", "")).split()[0]
         result["latest_close"] = float(latest_features.get("Close", 0.0))
+        result["daily_return"] = float(latest_features.get("Daily_Return", 0.0) or 0.0)
+        result["return_5d"] = float(latest_features.get("Return_5D", 0.0) or 0.0)
+        result["rsi_14"] = float(latest_features.get("RSI_14", 50.0) or 50.0)
+        result["volatility_20d"] = float(latest_features.get("Volatility_20D", 0.20) or 0.20)
+        result["volume_ratio"] = float(latest_features.get("Volume_Ratio", 1.0) or 1.0)
 
         # Fetch open-source live news sentiment to correlate with prediction
-        news_data = news_service.fetch_stock_news(symbol, limit=4)
+        news_data = news_service.fetch_stock_news(resolved_symbol, limit=4)
         market_sentiment = news_data.get("overall_sentiment", "Neutral")
 
         # Generate interpretability rationale
