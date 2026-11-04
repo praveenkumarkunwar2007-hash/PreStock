@@ -1,8 +1,13 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from backend.routes.predict import router as predict_router
 from backend.routes.stocks import router as stocks_router
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+INDEX_PATH = BASE_DIR / "frontend" / "index.html"
 
 app = FastAPI(
     title="AI Stock Predictor API",
@@ -10,7 +15,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for frontend integration
+# Enable CORS for frontend and cross-origin integration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,7 +29,17 @@ app.include_router(predict_router)
 app.include_router(stocks_router)
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+def home():
+    """
+    Serve the interactive frontend dashboard at the root URL (DocMind deployment style).
+    """
+    if not INDEX_PATH.exists():
+        return HTMLResponse("<h1>Frontend dashboard not found (frontend/index.html missing)</h1>", status_code=500)
+    return HTMLResponse(INDEX_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/api")
 def root():
     return {
         "name": "AI Stock Predictor API",

@@ -1,21 +1,10 @@
 services:
-  # Frontend Static Site (Free on Render)
+  # PreStock Unified Web Service (Backend API + Interactive Frontend Dashboard)
   - type: web
-    name: prestock-frontend
-    runtime: static
-    buildCommand: ""
-    staticPublishPath: ./frontend
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  # Backend Web Service (FastAPI API on Render)
-  - type: web
-    name: prestock-backend
+    name: prestock-app
     runtime: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
+        value: 3.12.0
