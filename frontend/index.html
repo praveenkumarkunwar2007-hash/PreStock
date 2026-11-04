@@ -224,6 +224,9 @@
             const last = histData.history[histData.history.length - 1];
             document.getElementById("metricClose").textContent = last.close.toFixed(2);
             document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
+            if (last.volatility_20d !== undefined && last.volatility_20d !== null) {
+              document.getElementById("metricVol").textContent = (last.volatility_20d * 100).toFixed(1) + "%";
+            }
           }
         }
       } catch (err) {

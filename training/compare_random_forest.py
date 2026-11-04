@@ -1,4 +1,3 @@
-
 import joblib
 import json
 
@@ -11,15 +10,26 @@ from sklearn.metrics import (
     log_loss
 )
 
-from train_xgboost import (
-    load_datasets,
-    prepare_data,
-    split_data,
-    FEATURES,
-    EXTRA_FEATURES,
-    MODEL_DIR,
-    RANDOM_STATE
-)
+try:
+    from training.train_xgboost import (
+        load_datasets,
+        prepare_data,
+        split_data,
+        FEATURES,
+        EXTRA_FEATURES,
+        MODEL_DIR,
+        RANDOM_STATE
+    )
+except ImportError:
+    from train_xgboost import (
+        load_datasets,
+        prepare_data,
+        split_data,
+        FEATURES,
+        EXTRA_FEATURES,
+        MODEL_DIR,
+        RANDOM_STATE
+    )
 
 
 MODEL_DIR.mkdir(parents=True, exist_ok=True)

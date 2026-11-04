@@ -11,9 +11,18 @@ US_FEATURES_FILE = DATA_DIR / "usa" / "us_features.csv"
 
 class StockDataService:
     def __init__(self):
-        self._cache = {}
+        self._df: Optional[pd.DataFrame] = None
+        self._last_mtimes: Dict[Path, float] = {}
 
     def get_all_features_df(self) -> pd.DataFrame:
+        current_mtimes = {}
+        for p in [INDIAN_FEATURES_FILE, US_FEATURES_FILE]:
+            if p.exists():
+                current_mtimes[p] = p.stat().st_mtime
+
+        if self._df is not None and current_mtimes == self._last_mtimes:
+            return self._df
+
         dfs = []
         if INDIAN_FEATURES_FILE.exists():
             dfs.append(pd.read_csv(INDIAN_FEATURES_FILE))
@@ -23,7 +32,9 @@ class StockDataService:
             return pd.DataFrame()
         combined = pd.concat(dfs, ignore_index=True)
         combined["Date"] = pd.to_datetime(combined["Date"])
-        return combined
+        self._df = combined
+        self._last_mtimes = current_mtimes
+        return self._df
 
     def list_stocks(self) -> List[Dict[str, Any]]:
         df = self.get_all_features_df()
@@ -85,7 +96,8 @@ class StockDataService:
                 "close": float(row.get("Close", 0.0)),
                 "volume": float(row.get("Volume", 0.0)),
                 "rsi_14": float(row.get("RSI_14", 0.0)),
-                "daily_return": float(row.get("Daily_Return", 0.0))
+                "daily_return": float(row.get("Daily_Return", 0.0)),
+                "volatility_20d": float(row.get("Volatility_20D", 0.0))
             })
         return records
 

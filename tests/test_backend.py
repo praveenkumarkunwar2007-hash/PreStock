@@ -45,6 +45,7 @@ class TestBackend(unittest.TestCase):
         res = get_stock_history("AAPL", limit=10)
         self.assertEqual(res["symbol"], "AAPL")
         self.assertEqual(len(res["history"]), 10)
+        self.assertIn("volatility_20d", res["history"][0])
 
 
 if __name__ == "__main__":
