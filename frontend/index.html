@@ -67,7 +67,7 @@
 
     .grid {
       display: grid;
-      grid-template-columns: 350px 1fr;
+      grid-template-columns: 380px 1fr;
       gap: 1.5rem;
       margin-bottom: 1.5rem;
     }
@@ -87,15 +87,20 @@
       justify-content: space-between;
       align-items: center;
     }
-    select, button {
+    select, button, input[type="text"] {
       width: 100%;
       padding: 0.75rem 1rem;
       border-radius: 0.5rem;
       border: 1px solid var(--border);
       background: #0f172a;
       color: var(--text);
-      font-size: 1rem;
-      margin-bottom: 1rem;
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+    }
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
     }
     button {
       background: var(--accent);
@@ -106,6 +111,95 @@
       transition: opacity 0.2s;
     }
     button:hover { opacity: 0.9; }
+
+    /* SEARCH PANEL STYLES */
+    .search-wrapper {
+      position: relative;
+      margin-bottom: 0.75rem;
+    }
+    .search-input-box {
+      position: relative;
+    }
+    .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      font-size: 0.9rem;
+    }
+    .search-input {
+      padding-left: 2.25rem !important;
+      margin-bottom: 0 !important;
+    }
+    .search-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #0f172a;
+      border: 1px solid var(--accent);
+      border-radius: 0.5rem;
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+      display: none;
+    }
+    .search-item {
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.15s;
+    }
+    .search-item:hover {
+      background: #1e293b;
+    }
+    .search-item-title {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+    .search-item-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .search-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      background: #334155;
+      color: #f8fafc;
+    }
+    .quick-chips {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .chip {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 0.25rem 0.55rem;
+      font-size: 0.75rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip:hover {
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 700;
+    }
 
     .metric-row {
       display: flex;
@@ -291,7 +385,7 @@
   <div class="header">
     <div>
       <h1>AI Stock Predictor</h1>
-      <p style="color: var(--muted); font-size: 0.9rem;">5-Day Movement Classifier (XGBoost v2) with Live Market Rationale & News</p>
+      <p style="color: var(--muted); font-size: 0.9rem;">5-Day Movement Classifier (XGBoost v2) with Live IPO Search, Market Rationale & News</p>
     </div>
     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
       <div class="status-badge" id="apiStatus">API: Connecting...</div>
@@ -302,8 +396,44 @@
   <div class="grid">
     <!-- Controls & Prediction -->
     <div class="card">
-      <h2>Stock Selection</h2>
-      <label for="stockSelect" style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">Select Market Ticker:</label>
+      <h2>
+        <span>Stock Selection</span>
+        <span style="font-size: 0.75rem; color: var(--accent); font-weight: normal;">Live IPO & Global Markets</span>
+      </h2>
+
+      <!-- SEARCH PANEL -->
+      <label style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">
+        🔍 Search Any Stock / IPO Listing:
+      </label>
+      <div class="search-wrapper">
+        <div class="search-input-box">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            id="stockSearchInput"
+            class="search-input"
+            placeholder="Type company or IPO ticker (e.g. Swiggy, Reddit, NVDA)..."
+            autocomplete="off"
+          />
+        </div>
+        <div id="searchDropdown" class="search-dropdown"></div>
+      </div>
+
+      <!-- QUICK POPULAR & IPO CHIPS -->
+      <div style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.35rem;">⚡ Quick Pick IPOs & Leaders:</div>
+      <div class="quick-chips">
+        <span class="chip" onclick="quickSelect('SWIGGY.NS', 'Swiggy Limited (NSE IPO)')">Swiggy (IPO)</span>
+        <span class="chip" onclick="quickSelect('RDDT', 'Reddit, Inc. (NYSE IPO)')">Reddit (RDDT)</span>
+        <span class="chip" onclick="quickSelect('TATATECH.NS', 'Tata Technologies (NSE IPO)')">Tata Tech</span>
+        <span class="chip" onclick="quickSelect('NVDA', 'NVIDIA Corp')">NVDA</span>
+        <span class="chip" onclick="quickSelect('RELIANCE.NS', 'Reliance Industries')">Reliance</span>
+        <span class="chip" onclick="quickSelect('ZOMATO.NS', 'Zomato Limited')">Zomato</span>
+      </div>
+
+      <!-- SELECT DROPDOWN -->
+      <label for="stockSelect" style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">
+        Or Choose from Tracked Stocks:
+      </label>
       <select id="stockSelect">
         <option value="AAPL">AAPL (US - NASDAQ)</option>
         <option value="MSFT">MSFT (US - NASDAQ)</option>
@@ -314,6 +444,7 @@
         <option value="INFY.NS">INFY.NS (India - NSE)</option>
         <option value="HDFCBANK.NS">HDFCBANK.NS (India - NSE)</option>
       </select>
+
       <button id="predictBtn" onclick="runPrediction()">Run Prediction</button>
 
       <div id="stockMetrics" style="margin-top: 1rem;">
@@ -341,7 +472,7 @@
 
     <!-- Chart Panel -->
     <div class="card">
-      <h2>Price History & Trends (Recent 30 Sessions)</h2>
+      <h2 id="chartHeading">Price History & Trends (Recent 30 Sessions)</h2>
       <div class="chart-container">
         <canvas id="priceChart"></canvas>
       </div>
@@ -355,7 +486,7 @@
       <span class="open-source-tag" id="rationaleTag">Explainable ML Analysis</span>
     </h2>
     <div class="rationale-summary" id="rationaleSummary">
-      Select a stock above to view the machine learning forecast rationale and indicator signals.
+      Select or search any stock above to view the machine learning forecast rationale and indicator signals.
     </div>
 
     <div class="signals-grid">
@@ -414,17 +545,16 @@
       const saved = localStorage.getItem("PRESTOCK_API_URL");
       if (saved) return saved.replace(/\/$/, "");
 
-      // If opened as a local file or from a different dev server port (e.g., Live Server 5500)
       if (window.location.protocol === "file:" || (window.location.port && window.location.port !== "8000" && window.location.port !== "7860")) {
         return "http://localhost:8000";
       }
 
-      // Default: same origin (unified deployment on FastAPI)
       return "";
     }
 
     let API_BASE = getApiBase();
     let chartInstance = null;
+    let searchDebounceTimer = null;
 
     function promptApiUrl() {
       const current = API_BASE || "http://localhost:8000";
@@ -475,13 +605,100 @@
       }
     }
 
+    function quickSelect(symbol, name) {
+      selectStock(symbol, name);
+    }
+
+    function selectStock(symbol, displayName) {
+      const select = document.getElementById("stockSelect");
+      let found = false;
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].value === symbol) {
+          select.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        const opt = document.createElement("option");
+        opt.value = symbol;
+        opt.textContent = displayName || symbol;
+        select.prepend(opt);
+        select.selectedIndex = 0;
+      }
+
+      document.getElementById("searchDropdown").style.display = "none";
+      document.getElementById("stockSearchInput").value = "";
+      runPrediction();
+    }
+
+    // SEARCH INPUT AUTOCOMPLETE
+    const searchInput = document.getElementById("stockSearchInput");
+    const searchDropdown = document.getElementById("searchDropdown");
+
+    searchInput.addEventListener("input", (e) => {
+      const query = e.target.value.trim();
+      clearTimeout(searchDebounceTimer);
+      if (!query || query.length < 1) {
+        searchDropdown.style.display = "none";
+        searchDropdown.innerHTML = "";
+        return;
+      }
+
+      searchDebounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/stocks/search?q=${encodeURIComponent(query)}`);
+          if (!res.ok) return;
+          const items = await res.json();
+          renderSearchResults(items);
+        } catch (err) {
+          console.error("Search error:", err);
+        }
+      }, 250);
+    });
+
+    function renderSearchResults(items) {
+      if (!items || items.length === 0) {
+        searchDropdown.innerHTML = `<div style="padding: 0.75rem; color: var(--muted); font-size: 0.85rem;">No matching stocks or IPOs found.</div>`;
+        searchDropdown.style.display = "block";
+        return;
+      }
+
+      searchDropdown.innerHTML = "";
+      items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "search-item";
+        row.innerHTML = `
+          <div>
+            <div class="search-item-title">${item.symbol}</div>
+            <div class="search-item-sub">${item.name}</div>
+          </div>
+          <div style="text-align: right;">
+            <span class="search-badge">${item.exchange}</span>
+            <div style="font-size: 0.68rem; color: var(--muted); margin-top: 0.2rem;">${item.type}</div>
+          </div>
+        `;
+        row.onclick = () => selectStock(item.symbol, `${item.symbol} - ${item.name} (${item.exchange})`);
+        searchDropdown.appendChild(row);
+      });
+      searchDropdown.style.display = "block";
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener("click", (e) => {
+      if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+        searchDropdown.style.display = "none";
+      }
+    });
+
     async function runPrediction() {
       const symbol = document.getElementById("stockSelect").value;
       if (!symbol) return;
 
       const btn = document.getElementById("predictBtn");
       btn.disabled = true;
-      btn.textContent = "Analyzing Signals & News...";
+      btn.textContent = `Analyzing ${symbol}...`;
+      document.getElementById("chartHeading").textContent = `Price History & Trends for ${symbol} (Recent Sessions)`;
 
       try {
         // 1. Fetch prediction & rationale
@@ -490,13 +707,16 @@
           const data = await predRes.json();
           updatePredictionUI(data);
           updateRationaleUI(data.rationale);
+        } else {
+          document.getElementById("predLabel").textContent = "NO DATA";
+          document.getElementById("predConfidence").textContent = "Could not fetch sufficient historical data for this ticker.";
         }
 
         // 2. Fetch history for chart
         const histRes = await fetch(`${API_BASE}/stocks/${symbol}/history?limit=30`);
         if (histRes.ok) {
           const histData = await histRes.json();
-          updateChart(histData.history);
+          updateChart(histData.history, symbol);
           if (histData.history.length > 0) {
             const last = histData.history[histData.history.length - 1];
             document.getElementById("metricClose").textContent = last.close.toFixed(2);
@@ -545,7 +765,6 @@
     function updateRationaleUI(rationale) {
       if (!rationale) return;
 
-      // Update Summary Paragraph
       document.getElementById("rationaleSummary").textContent = rationale.summary;
 
       // Update Bullish Signals
@@ -599,11 +818,9 @@
         if (!res.ok) throw new Error("Could not fetch news");
         const data = await res.json();
 
-        // Update overall sentiment badge
         badge.textContent = data.overall_sentiment.toUpperCase();
         badge.className = `badge ${data.sentiment_class === 'pred-profit' ? 'badge-profit' : data.sentiment_class === 'pred-loss' ? 'badge-loss' : 'badge-neutral'}`;
 
-        // Populate articles
         newsGrid.innerHTML = "";
         if (data.articles && data.articles.length > 0) {
           data.articles.forEach(art => {
@@ -636,7 +853,7 @@
       }
     }
 
-    function updateChart(history) {
+    function updateChart(history, symbol) {
       const labels = history.map(h => h.date.split("T")[0]);
       const prices = history.map(h => h.close);
 
@@ -648,7 +865,7 @@
         data: {
           labels: labels,
           datasets: [{
-            label: "Closing Price",
+            label: `${symbol || 'Stock'} Closing Price`,
             data: prices,
             borderColor: "#38bdf8",
             backgroundColor: "rgba(56, 189, 248, 0.1)",
@@ -660,7 +877,12 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: {
+              display: true,
+              labels: { color: "#94a3b8" }
+            }
+          },
           scales: {
             x: { grid: { color: "#334155" }, ticks: { color: "#94a3b8" } },
             y: { grid: { color: "#334155" }, ticks: { color: "#94a3b8" } }

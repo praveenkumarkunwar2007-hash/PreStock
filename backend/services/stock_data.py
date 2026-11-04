@@ -1,6 +1,12 @@
+import json
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import pandas as pd
+import yfinance as yf
+
+from training.preprocess import calculate_features
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "datasets"
@@ -13,6 +19,7 @@ class StockDataService:
     def __init__(self):
         self._df: Optional[pd.DataFrame] = None
         self._last_mtimes: Dict[Path, float] = {}
+        self._live_cache: Dict[str, pd.DataFrame] = {}
 
     def get_all_features_df(self) -> pd.DataFrame:
         current_mtimes = {}
@@ -56,13 +63,116 @@ class StockDataService:
             })
         return sorted(stocks, key=lambda x: x["symbol"])
 
-    def get_latest_features(self, symbol: str) -> Optional[Dict[str, Any]]:
-        df = self.get_all_features_df()
-        if df.empty:
+    def search_stocks(self, query: str) -> List[Dict[str, Any]]:
+        """
+        Search for any stock or IPO company across global exchanges (NSE, BSE, NASDAQ, NYSE).
+        """
+        q_clean = query.strip()
+        if not q_clean:
+            return []
+
+        results: List[Dict[str, Any]] = []
+        seen = set()
+
+        # 1. Search local tracked stocks first
+        local_df = self.get_all_features_df()
+        if not local_df.empty:
+            matches = local_df[local_df["Symbol"].astype(str).str.upper().str.contains(q_clean.upper())]
+            for sym, group in matches.groupby("Symbol"):
+                sym_str = str(sym).upper()
+                last_r = group.iloc[-1]
+                results.append({
+                    "symbol": sym_str,
+                    "name": f"{sym_str} (Tracked Stock)",
+                    "exchange": str(last_r.get("Exchange", "Market")),
+                    "market": str(last_r.get("Market", "Tracked")),
+                    "type": "Tracked",
+                    "is_local": True
+                })
+                seen.add(sym_str)
+
+        # 2. Query open real-time stock & IPO search endpoint (Yahoo Finance)
+        try:
+            encoded = urllib.parse.quote(q_clean)
+            url = f"https://query2.finance.yahoo.com/v1/finance/search?q={encoded}&quotesCount=10&newsCount=0"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = json.loads(resp.read())
+
+            for item in data.get("quotes", []):
+                sym = item.get("symbol", "").upper().strip()
+                if not sym or sym in seen:
+                    continue
+                quote_type = item.get("quoteType", "EQUITY")
+                # Filter to equities, etfs or ipo listings
+                if quote_type not in ["EQUITY", "ETF", "MUTUALFUND"]:
+                    continue
+
+                display_name = item.get("shortname") or item.get("longname") or sym
+                exchange = item.get("exchange", "Exchange")
+                market = "India" if sym.endswith(".NS") or sym.endswith(".BO") or exchange in ["NSI", "BSE"] else "US/Global"
+
+                results.append({
+                    "symbol": sym,
+                    "name": display_name,
+                    "exchange": exchange,
+                    "market": market,
+                    "type": "IPO / Live Equity",
+                    "is_local": False
+                })
+                seen.add(sym)
+                if len(results) >= 12:
+                    break
+        except Exception:
+            pass
+
+        return results
+
+    def _fetch_and_compute_live(self, symbol: str) -> Optional[pd.DataFrame]:
+        """
+        On-the-fly live historical download and technical indicator calculation
+        for any newly searched or IPO stock.
+        """
+        clean_sym = symbol.strip().upper()
+        if clean_sym in self._live_cache:
+            return self._live_cache[clean_sym]
+
+        try:
+            ticker = yf.Ticker(clean_sym)
+            hist = ticker.history(period="6mo", interval="1d").reset_index()
+            if hist.empty or len(hist) < 20:
+                return None
+
+            if "Date" in hist.columns and hasattr(hist["Date"].dt, "tz") and hist["Date"].dt.tz is not None:
+                hist["Date"] = hist["Date"].dt.tz_localize(None)
+
+            if "Adj Close" not in hist.columns:
+                hist["Adj Close"] = hist["Close"]
+            hist["Symbol"] = clean_sym
+
+            feat_df = calculate_features(hist, verbose=False)
+            if feat_df.empty:
+                return None
+
+            self._live_cache[clean_sym] = feat_df
+            return feat_df
+        except Exception:
             return None
 
+    def get_latest_features(self, symbol: str) -> Optional[Dict[str, Any]]:
         clean_sym = symbol.strip().upper()
-        stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
+        df = self.get_all_features_df()
+
+        stock_df = pd.DataFrame()
+        if not df.empty:
+            stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
+
+        # Fallback to live data for IPO or new stocks
+        if stock_df.empty:
+            live_df = self._fetch_and_compute_live(clean_sym)
+            if live_df is not None and not live_df.empty:
+                stock_df = live_df
+
         if stock_df.empty:
             return None
 
@@ -86,13 +196,20 @@ class StockDataService:
         return last_row
 
     def get_stock_history(self, symbol: str, limit: int = 30) -> List[Dict[str, Any]]:
-        df = self.get_all_features_df()
-        if df.empty:
-            return []
-
         safe_limit = max(1, min(int(limit), 500))
         clean_sym = symbol.strip().upper()
-        stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
+        df = self.get_all_features_df()
+
+        stock_df = pd.DataFrame()
+        if not df.empty:
+            stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
+
+        # Fallback to live data for IPO or new stocks
+        if stock_df.empty:
+            live_df = self._fetch_and_compute_live(clean_sym)
+            if live_df is not None and not live_df.empty:
+                stock_df = live_df
+
         if stock_df.empty:
             return []
 

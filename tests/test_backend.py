@@ -1,7 +1,7 @@
 import unittest
 from backend.services.stock_data import stock_data_service
 from backend.routes.predict import predict_by_symbol, predict_custom, CustomFeatureInput
-from backend.routes.stocks import get_all_stocks, get_stock_history, get_stock_news
+from backend.routes.stocks import get_all_stocks, get_stock_history, get_stock_news, search_stocks
 
 
 class TestBackend(unittest.TestCase):
@@ -58,6 +58,13 @@ class TestBackend(unittest.TestCase):
         self.assertIn("articles", news)
         self.assertIn("overall_sentiment", news)
         self.assertGreaterEqual(len(news["articles"]), 1)
+
+    def test_stock_search(self):
+        res = search_stocks(q="AAPL")
+        self.assertIsInstance(res, list)
+        self.assertGreaterEqual(len(res), 1)
+        symbols = [r["symbol"] for r in res]
+        self.assertIn("AAPL", symbols)
 
 
 if __name__ == "__main__":

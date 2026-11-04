@@ -28,6 +28,10 @@ def calculate_features(df, verbose: bool = False):
 
     # Ensure dates and numeric columns are valid
     df["Date"] = pd.to_datetime(df["Date"])
+    if "Adj Close" not in df.columns:
+        df["Adj Close"] = df["Close"]
+    if "Symbol" not in df.columns:
+        df["Symbol"] = "CUSTOM"
 
     numeric_columns = [
         "Open", "High", "Low",
