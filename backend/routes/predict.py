@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from backend.services.predictor import predictor
 from backend.services.stock_data import stock_data_service
+from backend.services.news_service import news_service
+from backend.services.rationale import generate_prediction_rationale
 
 router = APIRouter(prefix="/predict", tags=["Prediction"])
 
@@ -29,7 +31,8 @@ class CustomFeatureInput(BaseModel):
 @router.get("/symbol/{symbol}")
 def predict_by_symbol(symbol: str):
     """
-    Generate a 5-day horizon prediction for a tracked stock symbol.
+    Generate a 5-day horizon prediction for a tracked stock symbol, including
+    data-backed technical rationale and real-time open-source news sentiment.
     """
     latest_features = stock_data_service.get_latest_features(symbol)
     if not latest_features:
@@ -42,7 +45,23 @@ def predict_by_symbol(symbol: str):
         result = predictor.predict_features(latest_features)
         result["symbol"] = symbol.upper()
         result["date"] = str(latest_features.get("Date"))
-        result["latest_close"] = latest_features.get("Close")
+        result["latest_close"] = float(latest_features.get("Close", 0.0))
+
+        # Fetch open-source live news sentiment to correlate with prediction
+        news_data = news_service.fetch_stock_news(symbol, limit=4)
+        market_sentiment = news_data.get("overall_sentiment", "Neutral")
+
+        # Generate interpretability rationale
+        rationale = generate_prediction_rationale(
+            features=latest_features,
+            prediction=result["prediction"],
+            confidence=result["confidence"],
+            probabilities=result["probabilities"],
+            news_sentiment=market_sentiment
+        )
+        result["rationale"] = rationale
+        result["news_sentiment"] = market_sentiment
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -51,10 +70,18 @@ def predict_by_symbol(symbol: str):
 @router.post("/custom")
 def predict_custom(payload: CustomFeatureInput):
     """
-    Generate a prediction from custom raw feature values.
+    Generate a prediction from custom raw feature values, including technical rationale.
     """
     try:
         feature_dict = payload.model_dump()
-        return predictor.predict_features(feature_dict)
+        result = predictor.predict_features(feature_dict)
+        rationale = generate_prediction_rationale(
+            features=feature_dict,
+            prediction=result["prediction"],
+            confidence=result["confidence"],
+            probabilities=result["probabilities"]
+        )
+        result["rationale"] = rationale
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

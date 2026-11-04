@@ -1,7 +1,7 @@
 import unittest
 from backend.services.stock_data import stock_data_service
 from backend.routes.predict import predict_by_symbol, predict_custom, CustomFeatureInput
-from backend.routes.stocks import get_all_stocks, get_stock_history
+from backend.routes.stocks import get_all_stocks, get_stock_history, get_stock_news
 
 
 class TestBackend(unittest.TestCase):
@@ -18,6 +18,10 @@ class TestBackend(unittest.TestCase):
         self.assertEqual(res["symbol"], "AAPL")
         self.assertIn("prediction", res)
         self.assertIn(res["prediction"], ["Loss", "Neutral", "Profit"])
+        self.assertIn("rationale", res)
+        self.assertIn("summary", res["rationale"])
+        self.assertIn("bullish_signals", res["rationale"])
+        self.assertIn("bearish_signals", res["rationale"])
 
     def test_predict_custom_payload(self):
         payload = CustomFeatureInput(
@@ -40,12 +44,20 @@ class TestBackend(unittest.TestCase):
         res = predict_custom(payload)
         self.assertIn("prediction", res)
         self.assertIn(res["prediction"], ["Loss", "Neutral", "Profit"])
+        self.assertIn("rationale", res)
 
     def test_stock_history(self):
         res = get_stock_history("AAPL", limit=10)
         self.assertEqual(res["symbol"], "AAPL")
         self.assertEqual(len(res["history"]), 10)
         self.assertIn("volatility_20d", res["history"][0])
+
+    def test_stock_news(self):
+        news = get_stock_news("AAPL", limit=4)
+        self.assertEqual(news["symbol"], "AAPL")
+        self.assertIn("articles", news)
+        self.assertIn("overall_sentiment", news)
+        self.assertGreaterEqual(len(news["articles"]), 1)
 
 
 if __name__ == "__main__":
