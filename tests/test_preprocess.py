@@ -39,9 +39,18 @@ class TestPreprocess(unittest.TestCase):
             self.assertIn(col, result.columns, f"Missing column: {col}")
 
     def test_insufficient_data_returns_empty(self):
-        short_df = self.df.iloc[:20]
+        short_df = self.df.iloc[:3]
         result = calculate_features(short_df)
         self.assertTrue(result.empty)
+
+    def test_young_ipo_calculates_features(self):
+        ipo_df = self.df.iloc[:10]
+        result = calculate_features(ipo_df)
+        self.assertFalse(result.empty)
+        self.assertIn("RSI_14", result.columns)
+        self.assertIn("SMA_50", result.columns)
+        self.assertIn("Volatility_20D", result.columns)
+        self.assertFalse(result["RSI_14"].isna().any())
 
     def test_target_values_are_valid(self):
         result = calculate_features(self.df)

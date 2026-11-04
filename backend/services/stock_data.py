@@ -92,72 +92,90 @@ class StockDataService:
                 seen.add(sym_str)
 
         # 2. Query open real-time stock & IPO search endpoint (Yahoo Finance)
-        try:
-            encoded = urllib.parse.quote(q_clean)
-            url = f"https://query2.finance.yahoo.com/v1/finance/search?q={encoded}&quotesCount=10&newsCount=0"
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                data = json.loads(resp.read())
+        # Search both global and Indian regional feeds so newly listed IPOs (e.g. Swiggy, Tata Tech) appear
+        search_urls = [
+            f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(q_clean)}&quotesCount=12&newsCount=0",
+            f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(q_clean)}&quotesCount=12&newsCount=0&region=IN&lang=en-IN"
+        ]
 
-            for item in data.get("quotes", []):
-                sym = item.get("symbol", "").upper().strip()
-                if not sym or sym in seen:
-                    continue
-                quote_type = item.get("quoteType", "EQUITY")
-                # Filter to equities, etfs or ipo listings
-                if quote_type not in ["EQUITY", "ETF", "MUTUALFUND"]:
-                    continue
+        for s_url in search_urls:
+            try:
+                req = urllib.request.Request(s_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    data = json.loads(resp.read())
 
-                display_name = item.get("shortname") or item.get("longname") or sym
-                exchange = item.get("exchange", "Exchange")
-                market = "India" if sym.endswith(".NS") or sym.endswith(".BO") or exchange in ["NSI", "BSE"] else "US/Global"
+                for item in data.get("quotes", []):
+                    sym = item.get("symbol", "").upper().strip()
+                    if not sym or sym in seen:
+                        continue
+                    quote_type = item.get("quoteType", "EQUITY")
+                    if quote_type not in ["EQUITY", "ETF", "MUTUALFUND"]:
+                        continue
 
-                results.append({
-                    "symbol": sym,
-                    "name": display_name,
-                    "exchange": exchange,
-                    "market": market,
-                    "type": "IPO / Live Equity",
-                    "is_local": False
-                })
-                seen.add(sym)
-                if len(results) >= 12:
-                    break
-        except Exception:
-            pass
+                    display_name = item.get("shortname") or item.get("longname") or sym
+                    exchange = item.get("exchange", "Exchange")
+                    market = "India" if sym.endswith(".NS") or sym.endswith(".BO") or exchange in ["NSI", "BSE"] else "US/Global"
+
+                    results.append({
+                        "symbol": sym,
+                        "name": display_name,
+                        "exchange": exchange,
+                        "market": market,
+                        "type": "IPO / Live Equity",
+                        "is_local": False
+                    })
+                    seen.add(sym)
+                    if len(results) >= 15:
+                        break
+            except Exception:
+                pass
+            if len(results) >= 15:
+                break
 
         return results
 
     def _fetch_and_compute_live(self, symbol: str) -> Optional[pd.DataFrame]:
         """
         On-the-fly live historical download and technical indicator calculation
-        for any newly searched or IPO stock.
+        for any newly searched or IPO stock. Supports young IPOs (>= 5 trading days)
+        and automatic regional suffix fallback (.NS / .BO for Indian equities).
         """
         clean_sym = symbol.strip().upper()
         if clean_sym in self._live_cache:
             return self._live_cache[clean_sym]
 
-        try:
-            ticker = yf.Ticker(clean_sym)
-            hist = ticker.history(period="6mo", interval="1d").reset_index()
-            if hist.empty or len(hist) < 20:
-                return None
+        # Automatic suffix fallback: if no exchange suffix, test raw, then Indian NSE/BSE
+        candidates = [clean_sym]
+        if "." not in clean_sym:
+            candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
 
-            if "Date" in hist.columns and hasattr(hist["Date"].dt, "tz") and hist["Date"].dt.tz is not None:
-                hist["Date"] = hist["Date"].dt.tz_localize(None)
+        for cand in candidates:
+            try:
+                ticker = yf.Ticker(cand)
+                hist = ticker.history(period="6mo", interval="1d").reset_index()
+                if hist.empty or len(hist) < 5:
+                    continue
 
-            if "Adj Close" not in hist.columns:
-                hist["Adj Close"] = hist["Close"]
-            hist["Symbol"] = clean_sym
+                if "Date" in hist.columns and hasattr(hist["Date"].dt, "tz") and hist["Date"].dt.tz is not None:
+                    hist["Date"] = hist["Date"].dt.tz_localize(None)
 
-            feat_df = calculate_features(hist, verbose=False)
-            if feat_df.empty:
-                return None
+                if "Adj Close" not in hist.columns:
+                    hist["Adj Close"] = hist["Close"]
+                hist["Symbol"] = cand
 
-            self._live_cache[clean_sym] = feat_df
-            return feat_df
-        except Exception:
-            return None
+                # Calculate indicators with adaptive IPO handling
+                feat_df = calculate_features(hist, verbose=False, min_rows=5)
+                if feat_df.empty:
+                    continue
+
+                # Cache under both query symbol and resolved ticker
+                self._live_cache[clean_sym] = feat_df
+                self._live_cache[cand] = feat_df
+                return feat_df
+            except Exception:
+                continue
+
+        return None
 
     def get_latest_features(self, symbol: str) -> Optional[Dict[str, Any]]:
         clean_sym = symbol.strip().upper()

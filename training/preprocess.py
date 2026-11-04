@@ -22,7 +22,7 @@ PROFIT_THRESHOLD = 0.01
 LOSS_THRESHOLD = -0.01
 
 
-def calculate_features(df, verbose: bool = False):
+def calculate_features(df, verbose: bool = False, min_rows: int = 5):
 
     df = df.copy()
 
@@ -53,7 +53,8 @@ def calculate_features(df, verbose: bool = False):
         subset=["Open", "High", "Low", "Close", "Volume"]
     )
 
-    if len(df) < 50:
+    # Require at least min_rows (default 5 days) so young IPOs can be evaluated
+    if len(df) < min_rows:
         return pd.DataFrame()
 
     # Use closing price for technical indicators
@@ -61,143 +62,152 @@ def calculate_features(df, verbose: bool = False):
     high = df["High"]
     low = df["Low"]
     volume = df["Volume"]
+    n_samples = len(close)
 
     # ==================================
     # 1. PRICE AND RETURN FEATURES
     # ==================================
 
-    df["Daily_Return"] = close.pct_change()
+    df["Daily_Return"] = close.pct_change().bfill().fillna(0.0)
 
-    df["Return_5D"] = close.pct_change(5)
+    df["Return_5D"] = close.pct_change(5).bfill().fillna(0.0)
 
-    df["Return_10D"] = close.pct_change(10)
+    df["Return_10D"] = close.pct_change(10).bfill().fillna(0.0)
 
-    df["Return_20D"] = close.pct_change(20)
+    df["Return_20D"] = close.pct_change(20).bfill().fillna(0.0)
 
     # ==================================
-    # 2. MOVING AVERAGES
+    # 2. MOVING AVERAGES (Adaptive with min_periods=1)
     # ==================================
 
-    df["SMA_10"] = close.rolling(10).mean()
+    df["SMA_10"] = close.rolling(10, min_periods=1).mean()
 
-    df["SMA_20"] = close.rolling(20).mean()
+    df["SMA_20"] = close.rolling(20, min_periods=1).mean()
 
-    df["SMA_50"] = close.rolling(50).mean()
+    df["SMA_50"] = close.rolling(50, min_periods=1).mean()
 
     df["EMA_10"] = close.ewm(
-        span=10, adjust=False
+        span=10, min_periods=1, adjust=False
     ).mean()
 
     df["EMA_20"] = close.ewm(
-        span=20, adjust=False
+        span=20, min_periods=1, adjust=False
     ).mean()
 
     df["EMA_50"] = close.ewm(
-        span=50, adjust=False
+        span=50, min_periods=1, adjust=False
     ).mean()
 
     df["Price_vs_SMA20"] = (
-        close / df["SMA_20"] - 1
-    )
+        close / df["SMA_20"].replace(0, np.nan) - 1
+    ).fillna(0.0)
 
     df["Price_vs_SMA50"] = (
-        close / df["SMA_50"] - 1
-    )
+        close / df["SMA_50"].replace(0, np.nan) - 1
+    ).fillna(0.0)
 
     # ==================================
-    # 3. RSI
+    # 3. RSI (Adaptive window for young IPOs)
     # ==================================
 
+    rsi_window = min(14, max(2, n_samples - 1))
     df["RSI_14"] = RSIIndicator(
         close=close,
-        window=14
-    ).rsi()
+        window=rsi_window
+    ).rsi().bfill().ffill().fillna(50.0)
 
     # ==================================
-    # 4. MACD
+    # 4. MACD (Adaptive parameters)
     # ==================================
+
+    fast_w = min(12, max(2, n_samples // 3))
+    slow_w = min(26, max(fast_w + 1, min(n_samples - 1, 26)))
+    sign_w = min(9, max(2, n_samples // 4))
 
     macd = MACD(
         close=close,
-        window_fast=12,
-        window_slow=26,
-        window_sign=9
+        window_fast=fast_w,
+        window_slow=slow_w,
+        window_sign=sign_w
     )
 
-    df["MACD"] = macd.macd()
+    df["MACD"] = macd.macd().bfill().ffill().fillna(0.0)
 
-    df["MACD_Signal"] = macd.macd_signal()
+    df["MACD_Signal"] = macd.macd_signal().bfill().ffill().fillna(0.0)
 
     df["MACD_Histogram"] = (
-        macd.macd_diff()
+        macd.macd_diff().bfill().ffill().fillna(0.0)
     )
 
     # ==================================
-    # 5. BOLLINGER BANDS
+    # 5. BOLLINGER BANDS (Adaptive window)
     # ==================================
 
+    bb_window = min(20, max(2, n_samples - 1))
     bollinger = BollingerBands(
         close=close,
-        window=20,
+        window=bb_window,
         window_dev=2
     )
 
-    df["BB_High"] = bollinger.bollinger_hband()
+    df["BB_High"] = bollinger.bollinger_hband().bfill().ffill().fillna(close * 1.02)
 
-    df["BB_Low"] = bollinger.bollinger_lband()
+    df["BB_Low"] = bollinger.bollinger_lband().bfill().ffill().fillna(close * 0.98)
 
-    df["BB_Middle"] = bollinger.bollinger_mavg()
+    df["BB_Middle"] = bollinger.bollinger_mavg().bfill().ffill().fillna(close)
 
     df["BB_Width"] = (
         (df["BB_High"] - df["BB_Low"])
-        / df["BB_Middle"]
-    )
+        / df["BB_Middle"].replace(0, np.nan)
+    ).bfill().ffill().fillna(0.04)
 
     df["BB_Position"] = (
         (close - df["BB_Low"])
         / (df["BB_High"] - df["BB_Low"]).replace(0, np.nan)
-    )
+    ).bfill().ffill().fillna(0.5)
 
     # ==================================
-    # 6. ATR VOLATILITY
+    # 6. ATR VOLATILITY (Adaptive window)
     # ==================================
 
+    atr_window = min(14, max(2, n_samples - 1))
     atr = AverageTrueRange(
         high=high,
         low=low,
         close=close,
-        window=14
+        window=atr_window
     )
 
-    df["ATR_14"] = atr.average_true_range()
+    df["ATR_14"] = atr.average_true_range().bfill().ffill().fillna(close * 0.015)
 
     df["ATR_Percent"] = (
-        df["ATR_14"] / close
-    )
+        df["ATR_14"] / close.replace(0, np.nan)
+    ).bfill().ffill().fillna(0.015)
 
+    vol_window = min(20, max(2, n_samples - 1))
     df["Volatility_20D"] = (
-        df["Daily_Return"].rolling(20).std()
+        df["Daily_Return"].rolling(vol_window, min_periods=2).std()
         * np.sqrt(252)
-    )
+    ).bfill().ffill().fillna(0.20)
 
     # ==================================
     # 7. VOLUME INDICATORS
     # ==================================
 
     df["Volume_SMA_20"] = (
-        volume.rolling(20).mean()
+        volume.rolling(20, min_periods=1).mean()
     )
 
     df["Volume_Ratio"] = (
         volume / df["Volume_SMA_20"].replace(0, np.nan)
-    )
+    ).bfill().ffill().fillna(1.0)
 
     obv = OnBalanceVolumeIndicator(
         close=close,
         volume=volume
     )
 
-    df["OBV"] = obv.on_balance_volume()
+    df["OBV"] = obv.on_balance_volume().bfill().ffill().fillna(0.0)
 
     # ==================================
     # 8. FUTURE PREDICTION TARGETS
@@ -236,11 +246,7 @@ def calculate_features(df, verbose: bool = False):
             ).round(2)
         )
 
-
-    # Remove rows without sufficient historical features.
-    # Keep final rows with unavailable future labels for
-    # later prediction/inference.
-
+    # Keep rows with complete indicators
     df = df.replace(
         [np.inf, -np.inf], np.nan
     )

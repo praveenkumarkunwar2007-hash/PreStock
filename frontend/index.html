@@ -708,8 +708,17 @@
           updatePredictionUI(data);
           updateRationaleUI(data.rationale);
         } else {
+          let errDetail = "Could not fetch sufficient historical data for this ticker.";
+          try {
+            const errJson = await predRes.json();
+            if (errJson && errJson.detail) errDetail = errJson.detail;
+          } catch(e) {}
           document.getElementById("predLabel").textContent = "NO DATA";
-          document.getElementById("predConfidence").textContent = "Could not fetch sufficient historical data for this ticker.";
+          document.getElementById("predConfidence").textContent = `${errDetail} (Requires at least 5 completed trading sessions. For Indian stocks, try appending .NS e.g. ${symbol.replace(/\.NS/i, '')}.NS)`;
+          const box = document.getElementById("predictionBox");
+          box.className = "prediction-box pred-neutral";
+          document.getElementById("rationaleText").innerHTML = `<p style="color: var(--text-muted);">No sufficient historical trading data found for <strong>${symbol}</strong>. Newly listed IPOs require at least 5 days of market trading history.</p>`;
+          document.getElementById("rationaleFactors").innerHTML = "";
         }
 
         // 2. Fetch history for chart
