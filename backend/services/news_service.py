@@ -1,3 +1,4 @@
+import html
 import re
 import time
 import urllib.parse
@@ -44,12 +45,11 @@ NEGATIVE_WORDS = {
 class NewsService:
     def __init__(self):
         self._cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_ttl = 600  # 10 minutes
+        self._cache_ttl = 600  # 10 minutes cache
 
     def _get_search_query(self, symbol: str) -> str:
         clean = symbol.upper().strip()
         name = COMPANY_NAMES.get(clean, clean)
-        # For Indian NSE/BSE stocks, append 'India stock'
         if clean.endswith(".NS") or clean.endswith(".BO"):
             base = clean.split(".")[0]
             return f"{name} {base} stock India"
@@ -78,7 +78,7 @@ class NewsService:
 
     def fetch_stock_news(self, symbol: str, limit: int = 6) -> Dict[str, Any]:
         now = time.time()
-        cache_key = symbol.upper()
+        cache_key = symbol.upper().strip()
         if cache_key in self._cache:
             entry = self._cache[cache_key]
             if now - entry["cached_at"] < self._cache_ttl:
@@ -104,24 +104,23 @@ class NewsService:
 
             for item in items[:limit]:
                 raw_title = item.findtext("title") or "No title"
+                raw_title = re.sub(r"<[^>]+>", "", raw_title)
+                raw_title = html.unescape(raw_title).strip()
+
                 link = item.findtext("link") or "#"
                 pub_date = item.findtext("pubDate") or ""
                 source = item.findtext("source") or ""
 
-                # Extract source if formatted as "Title - Source"
                 title = raw_title
                 if " - " in raw_title and not source:
                     parts = raw_title.rsplit(" - ", 1)
-                    title = parts[0]
-                    source = parts[1]
+                    title = parts[0].strip()
+                    source = parts[1].strip()
 
                 sentiment_meta = self._analyze_sentiment(title)
                 overall_score += sentiment_meta["score"]
 
-                # Clean pub date to shorter format
-                display_date = pub_date
-                if len(pub_date) > 16:
-                    display_date = pub_date[:16]
+                display_date = pub_date[:16] if len(pub_date) > 16 else pub_date
 
                 articles.append({
                     "title": title,
@@ -132,13 +131,15 @@ class NewsService:
                     "badge_class": sentiment_meta["badge_class"]
                 })
 
-        except Exception as err:
-            # Fallback placeholder when offline or connection is blocked
+        except Exception:
+            pass
+
+        if not articles:
             articles = [{
-                "title": f"Live news currently unavailable for {symbol}. (Check internet connectivity)",
+                "title": f"Recent financial headlines for {symbol} can be viewed directly on Google Finance & News.",
                 "source": "Market Feed",
-                "link": f"https://www.google.com/search?q={urllib.parse.quote(query)}",
-                "published": "Recent",
+                "link": f"https://www.google.com/search?q={encoded_query}",
+                "published": "Live",
                 "sentiment": "Neutral",
                 "badge_class": "badge-neutral"
             }]

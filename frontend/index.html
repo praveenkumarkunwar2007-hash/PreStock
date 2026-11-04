@@ -479,6 +479,10 @@
       const symbol = document.getElementById("stockSelect").value;
       if (!symbol) return;
 
+      const btn = document.getElementById("predictBtn");
+      btn.disabled = true;
+      btn.textContent = "Analyzing Signals & News...";
+
       try {
         // 1. Fetch prediction & rationale
         const predRes = await fetch(`${API_BASE}/predict/symbol/${symbol}`);
@@ -504,10 +508,13 @@
         }
 
         // 3. Fetch real-time open-source news
-        fetchLiveNews(symbol);
+        await fetchLiveNews(symbol);
 
       } catch (err) {
-        console.error(err);
+        console.error("Prediction error:", err);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Run Prediction";
       }
     }
 

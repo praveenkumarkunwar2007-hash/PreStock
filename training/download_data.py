@@ -82,7 +82,7 @@ def download_stock(symbol, exchange, market):
             df.columns[0]
         )
 
-        df.rename(columns={date_column: "Date"}, inplace=True)
+        df = df.rename(columns={date_column: "Date"})
 
         # Required columns
         required_columns = [

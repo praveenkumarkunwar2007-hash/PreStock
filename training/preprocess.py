@@ -22,7 +22,7 @@ PROFIT_THRESHOLD = 0.01
 LOSS_THRESHOLD = -0.01
 
 
-def calculate_features(df):
+def calculate_features(df, verbose: bool = False):
 
     df = df.copy()
 
@@ -216,24 +216,21 @@ def calculate_features(df):
 
     valid = df["Target_5D"].notna()
 
-    # Display target distribution
-    print("\n5-Day Target Distribution:")
-
-    print(
-        df.loc[valid, "Target_5D"]
-        .value_counts()
-        .sort_index()
-    )
-
-    print("\nTarget Distribution Percentage:")
-
-    print(
-        (
+    if verbose:
+        print("\n5-Day Target Distribution:")
+        print(
             df.loc[valid, "Target_5D"]
-            .value_counts(normalize=True)
-            .sort_index() * 100
-        ).round(2)
-    )
+            .value_counts()
+            .sort_index()
+        )
+        print("\nTarget Distribution Percentage:")
+        print(
+            (
+                df.loc[valid, "Target_5D"]
+                .value_counts(normalize=True)
+                .sort_index() * 100
+            ).round(2)
+        )
 
 
     # Remove rows without sufficient historical features.

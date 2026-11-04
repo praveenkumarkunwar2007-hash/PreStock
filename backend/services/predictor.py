@@ -38,7 +38,7 @@ class StockPredictor:
         self.features = self.metadata.get("features", [])
         self.classes = self.metadata.get("classes", {"0": "Loss", "1": "Neutral", "2": "Profit"})
 
-    def predict_features(self, feature_dict: Dict[str, float]) -> Dict[str, Any]:
+    def predict_features(self, feature_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run inference on a dictionary containing feature values.
         """
@@ -46,7 +46,15 @@ class StockPredictor:
         if missing_features:
             raise ValueError(f"Missing required features: {missing_features}")
 
-        input_df = pd.DataFrame([{f: float(feature_dict[f]) for f in self.features}])
+        def safe_float(val: Any) -> float:
+            if val is None:
+                return float(np.nan)
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return float(np.nan)
+
+        input_df = pd.DataFrame([{f: safe_float(feature_dict[f]) for f in self.features}])
         probs = self.model.predict_proba(input_df)[0]
         pred_idx = int(np.argmax(probs))
         predicted_class = self.classes.get(str(pred_idx), "Unknown")

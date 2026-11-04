@@ -45,11 +45,12 @@ class StockDataService:
         for symbol, group in df.groupby("Symbol"):
             sorted_group = group.sort_values("Date")
             last_row = sorted_group.iloc[-1]
+            date_str = str(last_row.get("Date", "")).split()[0]
             stocks.append({
-                "symbol": symbol,
+                "symbol": str(symbol),
                 "exchange": str(last_row.get("Exchange", "")),
                 "market": str(last_row.get("Market", "")),
-                "latest_date": str(last_row.get("Date")),
+                "latest_date": date_str,
                 "latest_close": float(last_row.get("Close", 0.0)),
                 "records_count": len(sorted_group)
             })
@@ -60,19 +61,27 @@ class StockDataService:
         if df.empty:
             return None
 
-        stock_df = df[df["Symbol"].str.upper() == symbol.upper()].sort_values("Date")
+        clean_sym = symbol.strip().upper()
+        stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
         if stock_df.empty:
             return None
 
         last_row = stock_df.iloc[-1].to_dict()
-        # Add MACD percentage normalized values if needed
-        close_price = last_row.get("Close", 1.0)
+
+        # Safe close price for normalization
+        try:
+            close_price = float(last_row.get("Close", 1.0) or 1.0)
+        except (ValueError, TypeError):
+            close_price = 1.0
+        if close_price <= 0:
+            close_price = 1.0
+
         if "MACD_pct" not in last_row and "MACD" in last_row:
-            last_row["MACD_pct"] = last_row["MACD"] / close_price
+            last_row["MACD_pct"] = float(last_row["MACD"]) / close_price
         if "MACD_Signal_pct" not in last_row and "MACD_Signal" in last_row:
-            last_row["MACD_Signal_pct"] = last_row["MACD_Signal"] / close_price
+            last_row["MACD_Signal_pct"] = float(last_row["MACD_Signal"]) / close_price
         if "MACD_Histogram_pct" not in last_row and "MACD_Histogram" in last_row:
-            last_row["MACD_Histogram_pct"] = last_row["MACD_Histogram"] / close_price
+            last_row["MACD_Histogram_pct"] = float(last_row["MACD_Histogram"]) / close_price
 
         return last_row
 
@@ -81,23 +90,26 @@ class StockDataService:
         if df.empty:
             return []
 
-        stock_df = df[df["Symbol"].str.upper() == symbol.upper()].sort_values("Date")
+        safe_limit = max(1, min(int(limit), 500))
+        clean_sym = symbol.strip().upper()
+        stock_df = df[df["Symbol"].astype(str).str.upper() == clean_sym].sort_values("Date")
         if stock_df.empty:
             return []
 
-        tail = stock_df.tail(limit)
+        tail = stock_df.tail(safe_limit)
         records = []
         for _, row in tail.iterrows():
+            date_val = str(row.get("Date", "")).split()[0]
             records.append({
-                "date": str(row["Date"]),
-                "open": float(row.get("Open", 0.0)),
-                "high": float(row.get("High", 0.0)),
-                "low": float(row.get("Low", 0.0)),
-                "close": float(row.get("Close", 0.0)),
-                "volume": float(row.get("Volume", 0.0)),
-                "rsi_14": float(row.get("RSI_14", 0.0)),
-                "daily_return": float(row.get("Daily_Return", 0.0)),
-                "volatility_20d": float(row.get("Volatility_20D", 0.0))
+                "date": date_val,
+                "open": float(row.get("Open", 0.0) or 0.0),
+                "high": float(row.get("High", 0.0) or 0.0),
+                "low": float(row.get("Low", 0.0) or 0.0),
+                "close": float(row.get("Close", 0.0) or 0.0),
+                "volume": float(row.get("Volume", 0.0) or 0.0),
+                "rsi_14": float(row.get("RSI_14", 0.0) or 0.0),
+                "daily_return": float(row.get("Daily_Return", 0.0) or 0.0),
+                "volatility_20d": float(row.get("Volatility_20D", 0.0) or 0.0)
             })
         return records
 

@@ -44,7 +44,7 @@ def predict_by_symbol(symbol: str):
     try:
         result = predictor.predict_features(latest_features)
         result["symbol"] = symbol.upper()
-        result["date"] = str(latest_features.get("Date"))
+        result["date"] = str(latest_features.get("Date", "")).split()[0]
         result["latest_close"] = float(latest_features.get("Close", 0.0))
 
         # Fetch open-source live news sentiment to correlate with prediction
