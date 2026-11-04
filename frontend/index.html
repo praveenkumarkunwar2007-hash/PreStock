@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Stock Predictor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --profit: #22c55e;
+      --neutral: #f59e0b;
+      --loss: #ef4444;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 1.75rem; color: var(--accent); }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      background: #064e3b;
+      color: #34d399;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 1.5rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+    .card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 1rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    select, button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.95rem;
+    }
+    .metric-val { font-weight: 600; }
+    .prediction-box {
+      margin-top: 1.5rem;
+      padding: 1.25rem;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+    .pred-profit { background: rgba(34, 197, 94, 0.15); border: 1px solid var(--profit); color: var(--profit); }
+    .pred-neutral { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--neutral); color: var(--neutral); }
+    .pred-loss { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--loss); color: var(--loss); }
+    .pred-title { font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem; }
+    .pred-sub { font-size: 0.85rem; color: var(--muted); }
+    .prob-bar {
+      margin-top: 1rem;
+      height: 10px;
+      border-radius: 9999px;
+      display: flex;
+      overflow: hidden;
+      background: #334155;
+    }
+    .bar-loss { background: var(--loss); }
+    .bar-neutral { background: var(--neutral); }
+    .bar-profit { background: var(--profit); }
+    .chart-container {
+      position: relative;
+      height: 420px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>AI Stock Predictor</h1>
+      <p style="color: var(--muted); font-size: 0.9rem;">5-Day Movement Classifier (XGBoost v2)</p>
+    </div>
+    <div class="status-badge" id="apiStatus">API: Connected (localhost:8000)</div>
+  </div>
+
+  <div class="grid">
+    <!-- Controls & Info -->
+    <div class="card">
+      <h2>Stock Selection</h2>
+      <label for="stockSelect" style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">Select Market Ticker:</label>
+      <select id="stockSelect">
+        <option value="AAPL">AAPL (US - NASDAQ)</option>
+        <option value="MSFT">MSFT (US - NASDAQ)</option>
+        <option value="GOOGL">GOOGL (US - NASDAQ)</option>
+        <option value="NVDA">NVDA (US - NASDAQ)</option>
+        <option value="RELIANCE.NS">RELIANCE.NS (India - NSE)</option>
+        <option value="TCS.NS">TCS.NS (India - NSE)</option>
+        <option value="INFY.NS">INFY.NS (India - NSE)</option>
+        <option value="HDFCBANK.NS">HDFCBANK.NS (India - NSE)</option>
+      </select>
+      <button id="predictBtn" onclick="runPrediction()">Run Prediction</button>
+
+      <div id="stockMetrics" style="margin-top: 1rem;">
+        <div class="metric-row"><span>Latest Close:</span><span class="metric-val" id="metricClose">-</span></div>
+        <div class="metric-row"><span>14D RSI:</span><span class="metric-val" id="metricRSI">-</span></div>
+        <div class="metric-row"><span>20D Volatility:</span><span class="metric-val" id="metricVol">-</span></div>
+      </div>
+
+      <div id="predictionBox" class="prediction-box pred-neutral">
+        <div class="pred-sub">5-Day Expected Direction</div>
+        <div class="pred-title" id="predLabel">--</div>
+        <div class="pred-sub" id="predConfidence">Confidence: --</div>
+        <div class="prob-bar">
+          <div id="barLoss" class="bar-loss" style="width: 33%"></div>
+          <div id="barNeutral" class="bar-neutral" style="width: 34%"></div>
+          <div id="barProfit" class="bar-profit" style="width: 33%"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;">
+          <span>Loss (<span id="txtLoss">33%</span>)</span>
+          <span>Neutral (<span id="txtNeutral">34%</span>)</span>
+          <span>Profit (<span id="txtProfit">33%</span>)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Panel -->
+    <div class="card">
+      <h2>Price History & Trends (Recent 30 Sessions)</h2>
+      <div class="chart-container">
+        <canvas id="priceChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:8000";
+    let chartInstance = null;
+
+    async function loadStocks() {
+      try {
+        const res = await fetch(`${API_BASE}/stocks`);
+        if (res.ok) {
+          const stocks = await res.json();
+          const select = document.getElementById("stockSelect");
+          select.innerHTML = "";
+          stocks.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.symbol;
+            opt.textContent = `${s.symbol} (${s.market} - ${s.exchange})`;
+            select.appendChild(opt);
+          });
+          runPrediction();
+        }
+      } catch (e) {
+        document.getElementById("apiStatus").textContent = "API: Disconnected (Start uvicorn)";
+        document.getElementById("apiStatus").style.background = "#7f1d1d";
+        document.getElementById("apiStatus").style.color = "#f87171";
+      }
+    }
+
+    async function runPrediction() {
+      const symbol = document.getElementById("stockSelect").value;
+      if (!symbol) return;
+
+      try {
+        // Fetch prediction
+        const predRes = await fetch(`${API_BASE}/predict/symbol/${symbol}`);
+        if (predRes.ok) {
+          const data = await predRes.json();
+          updatePredictionUI(data);
+        }
+
+        // Fetch history
+        const histRes = await fetch(`${API_BASE}/stocks/${symbol}/history?limit=30`);
+        if (histRes.ok) {
+          const histData = await histRes.json();
+          updateChart(histData.history);
+          if (histData.history.length > 0) {
+            const last = histData.history[histData.history.length - 1];
+            document.getElementById("metricClose").textContent = last.close.toFixed(2);
+            document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updatePredictionUI(data) {
+      const box = document.getElementById("predictionBox");
+      const label = document.getElementById("predLabel");
+      const conf = document.getElementById("predConfidence");
+      label.textContent = data.prediction.toUpperCase();
+      conf.textContent = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+
+      box.className = "prediction-box " +
+        (data.prediction === "Profit" ? "pred-profit" :
+         data.prediction === "Loss" ? "pred-loss" : "pred-neutral");
+
+      const pLoss = (data.probabilities.Loss * 100).toFixed(1);
+      const pNeutral = (data.probabilities.Neutral * 100).toFixed(1);
+      const pProfit = (data.probabilities.Profit * 100).toFixed(1);
+
+      document.getElementById("barLoss").style.width = pLoss + "%";
+      document.getElementById("barNeutral").style.width = pNeutral + "%";
+      document.getElementById("barProfit").style.width = pProfit + "%";
+
+      document.getElementById("txtLoss").textContent = pLoss + "%";
+      document.getElementById("txtNeutral").textContent = pNeutral + "%";
+      document.getElementById("txtProfit").textContent = pProfit + "%";
+    }
+
+    function updateChart(history) {
+      const labels = history.map(h => h.date.split("T")[0]);
+      const prices = history.map(h => h.close);
+
+      const ctx = document.getElementById("priceChart").getContext("2d");
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Closing Price",
+            data: prices,
+            borderColor: "#38bdf8",
+            backgroundColor: "rgba(56, 189, 248, 0.1)",
+            fill: true,
+            tension: 0.25,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: "#334155" }, ticks: { color: "#94a3b8" } },
+            y: { grid: { color: "#334155" }, ticks: { color: "#94a3b8" } }
+          }
+        }
+      });
+    }
+
+    window.onload = loadStocks;
+    document.getElementById("stockSelect").addEventListener("change", runPrediction);
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+{
+    "model_name": "XGBoost Stock Classifier",
+    "prediction_horizon": "5 trading days",
+    "classes": {
+        "0": "Loss",
+        "1": "Neutral",
+        "2": "Profit"
+    },
+    "original_class_mapping": {
+        "-1": "Loss",
+        "0": "Neutral",
+        "1": "Profit"
+    },
+    "features": [
+        "Daily_Return",
+        "Return_5D",
+        "Return_10D",
+        "Return_20D",
+        "Price_vs_SMA20",
+        "Price_vs_SMA50",
+        "RSI_14",
+        "BB_Width",
+        "BB_Position",
+        "ATR_Percent",
+        "Volatility_20D",
+        "Volume_Ratio",
+        "MACD_pct",
+        "MACD_Signal_pct",
+        "MACD_Histogram_pct"
+    ],
+    "profit_threshold": 0.01,
+    "loss_threshold": -0.01,
+    "future_days": 5,
+    "model_file": "xgboost_5d.joblib",
+    "feature_importance": [
+        {
+            "Feature": "ATR_Percent",
+            "Importance": 0.11113716661930084
+        },
+        {
+            "Feature": "Volatility_20D",
+            "Importance": 0.07246778905391693
+        },
+        {
+            "Feature": "MACD_Signal_pct",
+            "Importance": 0.06758757680654526
+        },
+        {
+            "Feature": "MACD_pct",
+            "Importance": 0.06754285842180252
+        },
+        {
+            "Feature": "Price_vs_SMA50",
+            "Importance": 0.06738132983446121
+        },
+        {
+            "Feature": "Price_vs_SMA20",
+            "Importance": 0.06660481542348862
+        },
+        {
+            "Feature": "BB_Width",
+            "Importance": 0.0652555301785469
+        },
+        {
+            "Feature": "MACD_Histogram_pct",
+            "Importance": 0.06513535976409912
+        },
+        {
+            "Feature": "RSI_14",
+            "Importance": 0.06402205675840378
+        },
+        {
+            "Feature": "Return_20D",
+            "Importance": 0.06337416172027588
+        },
+        {
+            "Feature": "Return_10D",
+            "Importance": 0.06209968030452728
+        },
+        {
+            "Feature": "BB_Position",
+            "Importance": 0.061949681490659714
+        },
+        {
+            "Feature": "Volume_Ratio",
+            "Importance": 0.055803846567869186
+        },
+        {
+            "Feature": "Return_5D",
+            "Importance": 0.05569954961538315
+        },
+        {
+            "Feature": "Daily_Return",
+            "Importance": 0.05393856391310692
+        }
+    ]
+}

@@ -1,0 +1,24 @@
+{
+    "model_name": "Random Forest Classifier",
+    "prediction_horizon": "5 trading days",
+    "features": [
+        "Daily_Return",
+        "Return_5D",
+        "Return_10D",
+        "Return_20D",
+        "Price_vs_SMA20",
+        "Price_vs_SMA50",
+        "RSI_14",
+        "BB_Width",
+        "BB_Position",
+        "ATR_Percent",
+        "Volatility_20D",
+        "Volume_Ratio",
+        "MACD_pct",
+        "MACD_Signal_pct",
+        "MACD_Histogram_pct"
+    ],
+    "accuracy": 0.3715704206950614,
+    "balanced_accuracy": 0.3763321050386659,
+    "log_loss": 1.0824470752839241
+}
