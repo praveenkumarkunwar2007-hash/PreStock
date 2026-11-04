@@ -32,6 +32,8 @@
       margin-bottom: 2rem;
       padding-bottom: 1rem;
       border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     .header h1 { font-size: 1.75rem; color: var(--accent); }
     .status-badge {
@@ -44,6 +46,21 @@
       border-radius: 9999px;
       font-size: 0.85rem;
       font-weight: 600;
+    }
+    .btn-api-config {
+      width: auto !important;
+      margin-bottom: 0 !important;
+      padding: 0.4rem 0.8rem !important;
+      font-size: 0.85rem !important;
+      background: #1e293b !important;
+      color: var(--accent) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 9999px !important;
+      cursor: pointer;
+      font-weight: 600 !important;
+    }
+    .btn-api-config:hover {
+      background: #334155 !important;
     }
     .grid {
       display: grid;
@@ -117,6 +134,9 @@
       height: 420px;
       width: 100%;
     }
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -125,7 +145,10 @@
       <h1>AI Stock Predictor</h1>
       <p style="color: var(--muted); font-size: 0.9rem;">5-Day Movement Classifier (XGBoost v2)</p>
     </div>
-    <div class="status-badge" id="apiStatus">API: Connected (localhost:8000)</div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <div class="status-badge" id="apiStatus">API: Connecting...</div>
+      <button class="btn-api-config" onclick="promptApiUrl()">⚙️ Backend URL</button>
+    </div>
   </div>
 
   <div class="grid">
@@ -178,10 +201,47 @@
   </div>
 
   <script>
-    const API_BASE = "http://localhost:8000";
+    function getApiBase() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("api")) {
+        const val = params.get("api").replace(/\/$/, "");
+        localStorage.setItem("PRESTOCK_API_URL", val);
+        return val;
+      }
+      const saved = localStorage.getItem("PRESTOCK_API_URL");
+      if (saved) return saved.replace(/\/$/, "");
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        return "http://localhost:8000";
+      }
+      return "";
+    }
+
+    let API_BASE = getApiBase();
     let chartInstance = null;
 
+    function promptApiUrl() {
+      const current = API_BASE || "http://localhost:8000";
+      const input = prompt("Enter your Backend API URL (e.g., https://your-backend.onrender.com or http://localhost:8000):", current);
+      if (input !== null) {
+        const cleaned = input.trim().replace(/\/$/, "");
+        localStorage.setItem("PRESTOCK_API_URL", cleaned);
+        API_BASE = cleaned;
+        loadStocks();
+      }
+    }
+
     async function loadStocks() {
+      let displayUrl = API_BASE;
+      try {
+        if (API_BASE) {
+          displayUrl = (new URL(API_BASE, window.location.href)).host;
+        } else {
+          displayUrl = window.location.host || "same-origin";
+        }
+      } catch (e) {
+        displayUrl = API_BASE;
+      }
+
       try {
         const res = await fetch(`${API_BASE}/stocks`);
         if (res.ok) {
@@ -194,10 +254,15 @@
             opt.textContent = `${s.symbol} (${s.market} - ${s.exchange})`;
             select.appendChild(opt);
           });
+          document.getElementById("apiStatus").textContent = `API: Connected (${displayUrl})`;
+          document.getElementById("apiStatus").style.background = "#064e3b";
+          document.getElementById("apiStatus").style.color = "#34d399";
           runPrediction();
+        } else {
+          throw new Error("HTTP " + res.status);
         }
       } catch (e) {
-        document.getElementById("apiStatus").textContent = "API: Disconnected (Start uvicorn)";
+        document.getElementById("apiStatus").textContent = `API: Disconnected (${displayUrl})`;
         document.getElementById("apiStatus").style.background = "#7f1d1d";
         document.getElementById("apiStatus").style.color = "#f87171";
       }
