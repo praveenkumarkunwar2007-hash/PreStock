@@ -612,10 +612,116 @@
       color: #fff;
     }
 
+    /* NAVIGATION BAR & PAGE VIEWS STYLES */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.45rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav-bar::-webkit-scrollbar { display: none; }
+
+    .nav-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 0.65rem 1.15rem;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .nav-tab:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .nav-tab.active {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--accent);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.12);
+    }
+    .nav-icon {
+      font-size: 1.1rem;
+    }
+    .nav-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #0f172a;
+      padding: 0.15rem 0.45rem;
+      border-radius: 9999px;
+      margin-left: 0.2rem;
+    }
+
+    .page-view {
+      display: none;
+      animation: fadeInView 0.22s ease-in-out;
+    }
+    .page-view.active {
+      display: block;
+    }
+    @keyframes fadeInView {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .view-shortcut-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .view-shortcut-btn {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.5rem 0.9rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+    .view-shortcut-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .active-stock-banner {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+    }
+
     @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
       .signals-grid { grid-template-columns: 1fr; }
       .recs-grid { grid-template-columns: 1fr; }
+      .nav-tab { font-size: 0.82rem; padding: 0.55rem 0.85rem; }
     }
   </style>
 </head>
@@ -631,188 +737,249 @@
     </div>
   </div>
 
-  <div class="grid">
-    <!-- Controls & Prediction -->
-    <div class="card">
-      <h2>
-        <span>Stock Selection</span>
-        <span style="font-size: 0.75rem; color: var(--accent); font-weight: normal;">Live IPO & Global Markets</span>
-      </h2>
+  <!-- TOP NAVIGATION BAR / PAGE SWITCHER -->
+  <nav class="nav-bar">
+    <button class="nav-tab active" data-view="view-predictor" onclick="switchView('view-predictor', this)">
+      <span class="nav-icon">🎯</span>
+      <span>Predictor Studio</span>
+    </button>
+    <button class="nav-tab" data-view="view-research" onclick="switchView('view-research', this)">
+      <span class="nav-icon">🌟</span>
+      <span>AI Deep Research & IPOs</span>
+      <span class="nav-pill">Top Picks</span>
+    </button>
+    <button class="nav-tab" data-view="view-rationale" onclick="switchView('view-rationale', this)">
+      <span class="nav-icon">🧠</span>
+      <span>Prediction Rationale</span>
+    </button>
+    <button class="nav-tab" data-view="view-news" onclick="switchView('view-news', this)">
+      <span class="nav-icon">📰</span>
+      <span>Live News & Catalysts</span>
+    </button>
+  </nav>
 
-      <!-- SEARCH PANEL -->
-      <label style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">
-        🔍 Search Any Stock / IPO Listing:
-      </label>
-      <div class="search-wrapper">
-        <div class="search-input-box">
-          <span class="search-icon">🔍</span>
-          <input
-            type="text"
-            id="stockSearchInput"
-            class="search-input"
-            placeholder="Type company or IPO ticker (e.g. Swiggy, Reddit, NVDA)..."
-            autocomplete="off"
-          />
+  <!-- PAGE 1: PREDICTOR STUDIO & INTERACTIVE CHARTS -->
+  <div id="view-predictor" class="page-view active">
+    <div class="grid">
+      <!-- Controls & Prediction -->
+      <div class="card">
+        <h2>
+          <span>Stock Selection</span>
+          <span style="font-size: 0.75rem; color: var(--accent); font-weight: normal;">Live IPO & Global Markets</span>
+        </h2>
+
+        <!-- SEARCH PANEL -->
+        <label style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">
+          🔍 Search Any Stock / IPO Listing:
+        </label>
+        <div class="search-wrapper">
+          <div class="search-input-box">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              id="stockSearchInput"
+              class="search-input"
+              placeholder="Type company or IPO ticker (e.g. Swiggy, Reddit, NVDA)..."
+              autocomplete="off"
+            />
+          </div>
+          <div id="searchDropdown" class="search-dropdown"></div>
         </div>
-        <div id="searchDropdown" class="search-dropdown"></div>
-      </div>
 
-      <!-- QUICK POPULAR & IPO CHIPS -->
-      <div style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.35rem;">⚡ Quick Pick IPOs & Leaders:</div>
-      <div class="quick-chips">
-        <span class="chip" onclick="quickSelect('SWIGGY.NS', 'Swiggy Limited (NSE IPO)')">Swiggy (IPO)</span>
-        <span class="chip" onclick="quickSelect('RDDT', 'Reddit, Inc. (NYSE IPO)')">Reddit (RDDT)</span>
-        <span class="chip" onclick="quickSelect('TATATECH.NS', 'Tata Technologies (NSE IPO)')">Tata Tech</span>
-        <span class="chip" onclick="quickSelect('NVDA', 'NVIDIA Corp')">NVDA</span>
-        <span class="chip" onclick="quickSelect('RELIANCE.NS', 'Reliance Industries')">Reliance</span>
-        <span class="chip" onclick="quickSelect('ZOMATO.NS', 'Zomato Limited')">Zomato</span>
-      </div>
-
-      <!-- SELECT DROPDOWN -->
-      <label for="stockSelect" style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">
-        Or Choose from Tracked Stocks:
-      </label>
-      <select id="stockSelect">
-        <option value="AAPL">AAPL (US - NASDAQ)</option>
-        <option value="MSFT">MSFT (US - NASDAQ)</option>
-        <option value="GOOGL">GOOGL (US - NASDAQ)</option>
-        <option value="NVDA">NVDA (US - NASDAQ)</option>
-        <option value="RELIANCE.NS">RELIANCE.NS (India - NSE)</option>
-        <option value="TCS.NS">TCS.NS (India - NSE)</option>
-        <option value="INFY.NS">INFY.NS (India - NSE)</option>
-        <option value="HDFCBANK.NS">HDFCBANK.NS (India - NSE)</option>
-      </select>
-
-      <button id="predictBtn" onclick="runPrediction()">Run Prediction</button>
-
-      <div id="stockMetrics" style="margin-top: 1rem;">
-        <div class="metric-row"><span>Latest Close:</span><span class="metric-val" id="metricClose">-</span></div>
-        <div class="metric-row"><span>1-Day Return:</span><span class="metric-val" id="metricReturn1D">-</span></div>
-        <div class="metric-row"><span>5-Day Return:</span><span class="metric-val" id="metricReturn5D">-</span></div>
-        <div class="metric-row"><span>14D RSI:</span><span class="metric-val" id="metricRSI">-</span></div>
-        <div class="metric-row"><span>20D Volatility:</span><span class="metric-val" id="metricVol">-</span></div>
-        <div class="metric-row"><span>Volume vs 20D Avg:</span><span class="metric-val" id="metricVolumeRatio">-</span></div>
-      </div>
-
-      <div id="predictionBox" class="prediction-box pred-neutral">
-        <div class="pred-sub">5-Day Expected Direction</div>
-        <div class="pred-title" id="predLabel">--</div>
-        <div class="pred-sub" id="predConfidence">Confidence: --</div>
-        <div class="prob-bar">
-          <div id="barLoss" class="bar-loss" style="width: 33%"></div>
-          <div id="barNeutral" class="bar-neutral" style="width: 34%"></div>
-          <div id="barProfit" class="bar-profit" style="width: 33%"></div>
+        <!-- QUICK POPULAR & IPO CHIPS -->
+        <div style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.35rem;">⚡ Quick Pick IPOs & Leaders:</div>
+        <div class="quick-chips">
+          <span class="chip" onclick="quickSelect('SWIGGY.NS', 'Swiggy Limited (NSE IPO)')">Swiggy (IPO)</span>
+          <span class="chip" onclick="quickSelect('RDDT', 'Reddit, Inc. (NYSE IPO)')">Reddit (RDDT)</span>
+          <span class="chip" onclick="quickSelect('TATATECH.NS', 'Tata Technologies (NSE IPO)')">Tata Tech</span>
+          <span class="chip" onclick="quickSelect('NVDA', 'NVIDIA Corp')">NVDA</span>
+          <span class="chip" onclick="quickSelect('RELIANCE.NS', 'Reliance Industries')">Reliance</span>
+          <span class="chip" onclick="quickSelect('ZOMATO.NS', 'Zomato Limited')">Zomato</span>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;">
-          <span>Loss (<span id="txtLoss">33%</span>)</span>
-          <span>Neutral (<span id="txtNeutral">34%</span>)</span>
-          <span>Profit (<span id="txtProfit">33%</span>)</span>
+
+        <!-- SELECT DROPDOWN -->
+        <label for="stockSelect" style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 0.4rem;">
+          Or Choose from Tracked Stocks:
+        </label>
+        <select id="stockSelect">
+          <option value="AAPL">AAPL (US - NASDAQ)</option>
+          <option value="MSFT">MSFT (US - NASDAQ)</option>
+          <option value="GOOGL">GOOGL (US - NASDAQ)</option>
+          <option value="NVDA">NVDA (US - NASDAQ)</option>
+          <option value="RELIANCE.NS">RELIANCE.NS (India - NSE)</option>
+          <option value="TCS.NS">TCS.NS (India - NSE)</option>
+          <option value="INFY.NS">INFY.NS (India - NSE)</option>
+          <option value="HDFCBANK.NS">HDFCBANK.NS (India - NSE)</option>
+        </select>
+
+        <button id="predictBtn" onclick="runPrediction()">Run Prediction</button>
+
+        <div id="stockMetrics" style="margin-top: 1rem;">
+          <div class="metric-row"><span>Latest Close:</span><span class="metric-val" id="metricClose">-</span></div>
+          <div class="metric-row"><span>1-Day Return:</span><span class="metric-val" id="metricReturn1D">-</span></div>
+          <div class="metric-row"><span>5-Day Return:</span><span class="metric-val" id="metricReturn5D">-</span></div>
+          <div class="metric-row"><span>14D RSI:</span><span class="metric-val" id="metricRSI">-</span></div>
+          <div class="metric-row"><span>20D Volatility:</span><span class="metric-val" id="metricVol">-</span></div>
+          <div class="metric-row"><span>Volume vs 20D Avg:</span><span class="metric-val" id="metricVolumeRatio">-</span></div>
+        </div>
+
+        <div id="predictionBox" class="prediction-box pred-neutral">
+          <div class="pred-sub">5-Day Expected Direction</div>
+          <div class="pred-title" id="predLabel">--</div>
+          <div class="pred-sub" id="predConfidence">Confidence: --</div>
+          <div class="prob-bar">
+            <div id="barLoss" class="bar-loss" style="width: 33%"></div>
+            <div id="barNeutral" class="bar-neutral" style="width: 34%"></div>
+            <div id="barProfit" class="bar-profit" style="width: 33%"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;">
+            <span>Loss (<span id="txtLoss">33%</span>)</span>
+            <span>Neutral (<span id="txtNeutral">34%</span>)</span>
+            <span>Profit (<span id="txtProfit">33%</span>)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Panel -->
+      <div class="card">
+        <h2 id="chartHeading">Price History & Trends (Recent 30 Sessions)</h2>
+        <div class="chart-container">
+          <canvas id="priceChart"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- Chart Panel -->
-    <div class="card">
-      <h2 id="chartHeading">Price History & Trends (Recent 30 Sessions)</h2>
-      <div class="chart-container">
-        <canvas id="priceChart"></canvas>
+    <!-- Quick Shortcuts to explore other views -->
+    <div class="view-shortcut-bar">
+      <button class="view-shortcut-btn" onclick="switchView('view-research')">
+        <span>🌟 Open Deep Research & Top IPO Scanner →</span>
+      </button>
+      <button class="view-shortcut-btn" onclick="switchView('view-rationale')">
+        <span>🧠 View In-Depth AI Prediction Drivers & Signals →</span>
+      </button>
+      <button class="view-shortcut-btn" onclick="switchView('view-news')">
+        <span>📰 Open Live Company News & Sentiment Feed →</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- PAGE 2: AI DEEP RESEARCH & TOP PROFITABLE PICKS -->
+  <div id="view-research" class="page-view">
+    <div class="card section-full" id="deepResearchSection">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.5rem;">
+        <div>
+          <h2 style="margin-bottom: 0.25rem;">
+            <span>🌟 AI Deep Research: Top Profitable Stocks & IPOs</span>
+            <span class="open-source-tag" id="recsScannedTag">Multi-Factor Quantitative Scanner</span>
+          </h2>
+          <p style="color: var(--muted); font-size: 0.85rem; margin: 0;">
+            Autonomous deep analysis across stocks and newly listed IPOs ranking opportunities by XGBoost ML profit probability, technical momentum, and financial news catalysts.
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span id="recsStatusBadge" style="font-size: 0.75rem; color: var(--profit); background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.25rem 0.6rem; border-radius: 9999px;">
+            ● Scan Ready
+          </span>
+        </div>
+      </div>
+
+      <!-- Controls & Filters Toolbar -->
+      <div class="recs-controls">
+        <div class="recs-filters">
+          <button class="filter-btn active" data-cat="all" data-mkt="all" onclick="applyRecFilter('all', 'all', this)">🔥 All High-Profit Picks</button>
+          <button class="filter-btn" data-cat="ipo" data-mkt="all" onclick="applyRecFilter('ipo', 'all', this)">🚀 Top IPOs Only</button>
+          <button class="filter-btn" data-cat="stock" data-mkt="all" onclick="applyRecFilter('stock', 'all', this)">📈 Blue-Chip Stocks</button>
+          <button class="filter-btn" data-cat="all" data-mkt="india" onclick="applyRecFilter('all', 'india', this)">🇮🇳 Indian Market (NSE/BSE)</button>
+          <button class="filter-btn" data-cat="all" data-mkt="us" onclick="applyRecFilter('all', 'us', this)">🇺🇸 US Market (NASDAQ/NYSE)</button>
+        </div>
+        <button id="rescanBtn" class="rescan-btn" onclick="triggerDeepResearch()">
+          <span>⚡ Re-Scan & Re-Rank</span>
+        </button>
+      </div>
+
+      <!-- Cards Grid -->
+      <div class="recs-grid" id="recommendationsGrid">
+        <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: var(--muted);">
+          <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</div>
+          Running Deep Research across global equities & newly listed IPOs...
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- SECTION: AI DEEP RESEARCH & TOP PROFITABLE PICKS -->
-  <div class="card section-full" id="deepResearchSection">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.5rem;">
+  <!-- PAGE 3: PREDICTION REASON & RATIONALE -->
+  <div id="view-rationale" class="page-view">
+    <div class="active-stock-banner">
       <div>
-        <h2 style="margin-bottom: 0.25rem;">
-          <span>🌟 AI Deep Research: Top Profitable Stocks & IPOs</span>
-          <span class="open-source-tag" id="recsScannedTag">Multi-Factor Quantitative Scanner</span>
-        </h2>
-        <p style="color: var(--muted); font-size: 0.85rem; margin: 0;">
-          Autonomous deep analysis across stocks and newly listed IPOs ranking opportunities by XGBoost ML profit probability, technical momentum, and financial news catalysts.
-        </p>
+        Active Selected Stock: <strong id="rationaleActiveSymbol" style="color: var(--accent); font-size: 1.05rem;">-</strong>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span id="recsStatusBadge" style="font-size: 0.75rem; color: var(--profit); background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.25rem 0.6rem; border-radius: 9999px;">
-          ● Scan Ready
-        </span>
-      </div>
-    </div>
-
-    <!-- Controls & Filters Toolbar -->
-    <div class="recs-controls">
-      <div class="recs-filters">
-        <button class="filter-btn active" data-cat="all" data-mkt="all" onclick="applyRecFilter('all', 'all', this)">🔥 All High-Profit Picks</button>
-        <button class="filter-btn" data-cat="ipo" data-mkt="all" onclick="applyRecFilter('ipo', 'all', this)">🚀 Top IPOs Only</button>
-        <button class="filter-btn" data-cat="stock" data-mkt="all" onclick="applyRecFilter('stock', 'all', this)">📈 Blue-Chip Stocks</button>
-        <button class="filter-btn" data-cat="all" data-mkt="india" onclick="applyRecFilter('all', 'india', this)">🇮🇳 Indian Market (NSE/BSE)</button>
-        <button class="filter-btn" data-cat="all" data-mkt="us" onclick="applyRecFilter('all', 'us', this)">🇺🇸 US Market (NASDAQ/NYSE)</button>
-      </div>
-      <button id="rescanBtn" class="rescan-btn" onclick="triggerDeepResearch()">
-        <span>⚡ Re-Scan & Re-Rank</span>
+      <button class="view-shortcut-btn" onclick="switchView('view-predictor')" style="margin: 0; padding: 0.35rem 0.75rem;">
+        <span>🎯 Back to Predictor & Chart</span>
       </button>
     </div>
 
-    <!-- Cards Grid -->
-    <div class="recs-grid" id="recommendationsGrid">
-      <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: var(--muted);">
-        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</div>
-        Running Deep Research across global equities & newly listed IPOs...
+    <div class="card section-full">
+      <h2>
+        <span>🧠 AI Prediction Rationale & Key Drivers</span>
+        <span class="open-source-tag" id="rationaleTag">Explainable ML Analysis</span>
+      </h2>
+      <div class="rationale-summary" id="rationaleSummary">
+        Select or search any stock to view the machine learning forecast rationale and indicator signals.
       </div>
-    </div>
-  </div>
 
-  <!-- SECTION 1: PREDICTION REASON & RATIONALE -->
-  <div class="card section-full">
-    <h2>
-      <span>🧠 AI Prediction Rationale & Key Drivers</span>
-      <span class="open-source-tag" id="rationaleTag">Explainable ML Analysis</span>
-    </h2>
-    <div class="rationale-summary" id="rationaleSummary">
-      Select or search any stock above to view the machine learning forecast rationale and indicator signals.
-    </div>
-
-    <div class="signals-grid">
-      <!-- Bullish Signals -->
-      <div class="signal-column">
-        <h3 style="color: var(--profit);">🟢 Bullish Signals & Catalysts</h3>
-        <div id="bullishSignalsContainer">
-          <div class="signal-item">
-            <div class="signal-desc">Awaiting prediction data...</div>
+      <div class="signals-grid">
+        <!-- Bullish Signals -->
+        <div class="signal-column">
+          <h3 style="color: var(--profit);">🟢 Bullish Signals & Catalysts</h3>
+          <div id="bullishSignalsContainer">
+            <div class="signal-item">
+              <div class="signal-desc">Awaiting prediction data...</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Bearish Signals -->
-      <div class="signal-column">
-        <h3 style="color: var(--loss);">🔴 Caution & Bearish Headwinds</h3>
-        <div id="bearishSignalsContainer">
-          <div class="signal-item">
-            <div class="signal-desc">Awaiting prediction data...</div>
+        <!-- Bearish Signals -->
+        <div class="signal-column">
+          <h3 style="color: var(--loss);">🔴 Caution & Bearish Headwinds</h3>
+          <div id="bearishSignalsContainer">
+            <div class="signal-item">
+              <div class="signal-desc">Awaiting prediction data...</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- SECTION 2: RECENT LIVE NEWS & MARKET SENTIMENT -->
-  <div class="card section-full">
-    <h2>
-      <span>📰 Live Company News & Market Catalysts</span>
-      <span class="open-source-tag">Connected to Live Financial RSS Feed</span>
-    </h2>
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-      <div style="font-size: 0.9rem; color: var(--muted);">
-        Market News Sentiment: <span id="newsSentimentBadge" class="badge badge-neutral">Scanning...</span>
+  <!-- PAGE 4: RECENT LIVE NEWS & MARKET SENTIMENT -->
+  <div id="view-news" class="page-view">
+    <div class="active-stock-banner">
+      <div>
+        Active Selected Stock: <strong id="newsActiveSymbol" style="color: var(--accent); font-size: 1.05rem;">-</strong>
       </div>
-      <div style="font-size: 0.8rem; color: var(--muted);">
-        Source: Open-Source Financial Media (Google News RSS / Reuters / Bloomberg / CNBC / Moneycontrol)
-      </div>
+      <button class="view-shortcut-btn" onclick="switchView('view-predictor')" style="margin: 0; padding: 0.35rem 0.75rem;">
+        <span>🎯 Back to Predictor & Chart</span>
+      </button>
     </div>
 
-    <div class="news-grid" id="newsGrid">
-      <div class="news-card">
-        <div class="news-title">Loading recent stock news...</div>
+    <div class="card section-full">
+      <h2>
+        <span>📰 Live Company News & Market Catalysts</span>
+        <span class="open-source-tag">Connected to Live Financial RSS Feed</span>
+      </h2>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="font-size: 0.9rem; color: var(--muted);">
+          Market News Sentiment: <span id="newsSentimentBadge" class="badge badge-neutral">Scanning...</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--muted);">
+          Source: Open-Source Financial Media (Google News RSS / Reuters / Bloomberg / CNBC / Moneycontrol)
+        </div>
+      </div>
+
+      <div class="news-grid" id="newsGrid">
+        <div class="news-card">
+          <div class="news-title">Loading recent stock news...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1007,6 +1174,12 @@
       btn.disabled = true;
       btn.textContent = `Analyzing ${symbol}...`;
       document.getElementById("chartHeading").textContent = `Price History & Trends for ${symbol} (Recent Sessions)`;
+      if (document.getElementById("rationaleActiveSymbol")) {
+        document.getElementById("rationaleActiveSymbol").textContent = symbol;
+      }
+      if (document.getElementById("newsActiveSymbol")) {
+        document.getElementById("newsActiveSymbol").textContent = symbol;
+      }
 
       try {
         // 1. Fetch prediction & rationale
@@ -1418,7 +1591,70 @@
       loadRecommendations(currentRecCat, currentRecMkt, true);
     }
 
+    // ==========================================
+    // MULTI-PAGE NAVIGATION & TAB SWITCHING
+    // ==========================================
+    const VIEW_HASH_MAP = {
+      "#predictor": "view-predictor",
+      "#research": "view-research",
+      "#rationale": "view-rationale",
+      "#news": "view-news"
+    };
+
+    const HASH_VIEW_MAP = {
+      "view-predictor": "#predictor",
+      "view-research": "#research",
+      "view-rationale": "#rationale",
+      "view-news": "#news"
+    };
+
+    function switchView(viewId, clickedBtn = null) {
+      // Hide all page views
+      document.querySelectorAll(".page-view").forEach(v => v.classList.remove("active"));
+      // Deactivate all navigation tabs
+      document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+
+      // Activate selected page view
+      const targetView = document.getElementById(viewId);
+      if (targetView) targetView.classList.add("active");
+
+      // Activate corresponding tab button
+      const targetBtn = clickedBtn || document.querySelector(`.nav-tab[data-view="${viewId}"]`);
+      if (targetBtn) targetBtn.classList.add("active");
+
+      // Update URL hash without causing unwanted jumps
+      if (HASH_VIEW_MAP[viewId]) {
+        try {
+          history.replaceState(null, null, HASH_VIEW_MAP[viewId]);
+        } catch(e) {}
+      }
+
+      // Chart.js canvas resize handling when navigating back to predictor
+      if (viewId === "view-predictor" && chartInstance) {
+        setTimeout(() => {
+          try { chartInstance.resize(); } catch(e) {}
+        }, 50);
+      }
+    }
+
+    window.addEventListener("hashchange", () => {
+      const hash = (window.location.hash || "").toLowerCase();
+      if (VIEW_HASH_MAP[hash]) {
+        switchView(VIEW_HASH_MAP[hash]);
+      }
+    });
+
+    function initViewFromHash() {
+      const hash = (window.location.hash || "").toLowerCase();
+      if (VIEW_HASH_MAP[hash]) {
+        switchView(VIEW_HASH_MAP[hash]);
+      } else {
+        switchView("view-predictor");
+      }
+    }
+
     function openRecInPredictor(symbol, displayName) {
+      switchView("view-predictor");
       selectStock(symbol, displayName);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1426,6 +1662,7 @@
     window.onload = () => {
       loadStocks();
       loadRecommendations();
+      initViewFromHash();
     };
     document.getElementById("stockSelect").addEventListener("change", runPrediction);
   </script>
