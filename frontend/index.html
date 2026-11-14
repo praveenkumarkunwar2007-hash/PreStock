@@ -45,11 +45,26 @@
       align-items: center;
       gap: 0.5rem;
       padding: 0.4rem 0.8rem;
-      background: #064e3b;
-      color: #34d399;
+      background: #854d0e;
+      color: #fde047;
       border-radius: 9999px;
       font-size: 0.85rem;
       font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .status-badge.status-connected {
+      background: #064e3b;
+      color: #34d399;
+    }
+    .status-badge.status-disconnected {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+    .status-badge.status-connecting {
+      background: #854d0e;
+      color: #fde047;
     }
     .btn-api-config {
       width: auto !important;
@@ -912,8 +927,21 @@
       <p style="color: var(--muted); font-size: 0.9rem;">Multi-Horizon (1–45 Days) AI Stock & IPO Predictor with Optimal Holding Duration Calculator</p>
     </div>
     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-      <div class="status-badge" id="apiStatus">API: Connecting...</div>
+      <div class="status-badge status-connecting" id="apiStatus" onclick="retryConnection()" title="Click to test API connection">API: Connecting...</div>
       <button class="btn-api-config" onclick="promptApiUrl()">⚙️ Backend URL</button>
+    </div>
+  </div>
+
+  <!-- API OFFLINE WARNING BANNER -->
+  <div id="apiOfflineBanner" style="display: none; background: rgba(239, 68, 68, 0.12); border: 1px solid var(--loss); border-radius: 0.5rem; padding: 0.75rem 1.15rem; margin-bottom: 1.25rem; color: #fecaca; font-size: 0.88rem; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+      <strong style="color: #f87171;">⚠️ Backend Server Not Detected:</strong>
+      Cannot connect to <code style="color: var(--accent); background: #0f172a; padding: 0.15rem 0.35rem; border-radius: 0.25rem;">http://localhost:8000</code>.
+      Make sure the server is running, or double-click <code style="color: var(--accent); background: #0f172a; padding: 0.15rem 0.35rem; border-radius: 0.25rem;">start_server.bat</code>.
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button onclick="retryConnection()" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: var(--loss); color: #fff; border-radius: 0.35rem; margin: 0; cursor: pointer;">⚡ Reconnect</button>
+      <button onclick="promptApiUrl()" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #1e293b; color: var(--accent); border: 1px solid var(--border); border-radius: 0.35rem; margin: 0; cursor: pointer;">Change URL</button>
     </div>
   </div>
 
@@ -1313,11 +1341,33 @@
     let searchDebounceTimer = null;
     let currentHorizonDays = 5;
     let horizonDebounceTimer = null;
+    let autoReconnectInterval = null;
+    let isApiConnected = false;
+
+    // Fast, resilient fetch with timeout to prevent hanging on disconnected backend
+    async function fetchWithTimeout(resource, options = {}, timeoutMs = 3500) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(resource, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    }
 
     function onHorizonSliderInput(val) {
       const days = Math.max(1, Math.min(45, parseInt(val) || 5));
       updateHorizonBadge(days);
       updateActiveChip(days);
+
+      const horizonTitle = document.getElementById("predHorizonTitle");
+      if (horizonTitle) horizonTitle.textContent = `${days}-Day Expected Direction`;
 
       // Debounce prediction update while dragging
       clearTimeout(horizonDebounceTimer);
@@ -1332,6 +1382,10 @@
       currentHorizonDays = days;
       updateHorizonBadge(days);
       updateActiveChip(days);
+
+      const horizonTitle = document.getElementById("predHorizonTitle");
+      if (horizonTitle) horizonTitle.textContent = `${days}-Day Expected Direction`;
+
       runPrediction(days);
     }
 
@@ -1343,6 +1397,10 @@
       if (slider) slider.value = days;
       updateHorizonBadge(days);
       updateActiveChip(days);
+
+      const horizonTitle = document.getElementById("predHorizonTitle");
+      if (horizonTitle) horizonTitle.textContent = `${days}-Day Expected Direction`;
+
       runPrediction(days);
     }
 
@@ -1379,26 +1437,34 @@
         localStorage.setItem("PRESTOCK_API_URL", cleaned);
         API_BASE = cleaned;
         loadStocks();
+        loadRecommendations(currentRecCat, currentRecMkt, false);
       }
     }
 
     async function loadStocks() {
-      let displayUrl = API_BASE;
+      let displayUrl = API_BASE || "localhost:8000";
       try {
         if (API_BASE) {
           displayUrl = (new URL(API_BASE, window.location.href)).host;
         } else {
-          displayUrl = window.location.host || "same-origin";
+          displayUrl = window.location.host || "localhost:8000";
         }
       } catch (e) {
-        displayUrl = API_BASE;
+        displayUrl = API_BASE || "localhost:8000";
       }
 
+      const statusEl = document.getElementById("apiStatus");
+      const banner = document.getElementById("apiOfflineBanner");
+
       try {
-        const res = await fetch(`${API_BASE}/stocks`);
+        statusEl.className = "status-badge status-connecting";
+        statusEl.textContent = "API: Connecting...";
+
+        const res = await fetchWithTimeout(`${API_BASE}/stocks`, {}, 3000);
         if (res.ok) {
           const stocks = await res.json();
           const select = document.getElementById("stockSelect");
+          const previousVal = select.value;
           select.innerHTML = "";
           stocks.forEach(s => {
             const opt = document.createElement("option");
@@ -1406,18 +1472,78 @@
             opt.textContent = `${s.symbol} (${s.market} - ${s.exchange})`;
             select.appendChild(opt);
           });
-          document.getElementById("apiStatus").textContent = `API: Connected (${displayUrl})`;
-          document.getElementById("apiStatus").style.background = "#064e3b";
-          document.getElementById("apiStatus").style.color = "#34d399";
-          runPrediction();
+          if (previousVal && Array.from(select.options).some(o => o.value === previousVal)) {
+            select.value = previousVal;
+          }
+
+          isApiConnected = true;
+          statusEl.className = "status-badge status-connected";
+          statusEl.textContent = `API: Connected (${displayUrl})`;
+          statusEl.title = "Backend API is online and responding. Click to test connection.";
+          if (banner) banner.style.display = "none";
+
+          startKeepAlivePolling();
+          runPrediction(currentHorizonDays);
+          return true;
         } else {
           throw new Error("HTTP " + res.status);
         }
       } catch (e) {
-        document.getElementById("apiStatus").textContent = `API: Disconnected (${displayUrl})`;
-        document.getElementById("apiStatus").style.background = "#7f1d1d";
-        document.getElementById("apiStatus").style.color = "#f87171";
+        isApiConnected = false;
+        statusEl.className = "status-badge status-disconnected";
+        statusEl.textContent = `API: Disconnected (Click to Retry)`;
+        statusEl.title = "Backend server not responding. Click to retry connection.";
+        if (banner) banner.style.display = "flex";
+
+        startAutoReconnect();
+        return false;
       }
+    }
+
+    function retryConnection() {
+      const statusEl = document.getElementById("apiStatus");
+      if (statusEl) {
+        statusEl.className = "status-badge status-connecting";
+        statusEl.textContent = "API: Re-checking...";
+      }
+      loadStocks();
+      loadRecommendations(currentRecCat, currentRecMkt, false);
+    }
+
+    function startAutoReconnect() {
+      if (autoReconnectInterval) clearInterval(autoReconnectInterval);
+      // Auto-reconnect poll every 3 seconds until server comes online
+      autoReconnectInterval = setInterval(async () => {
+        try {
+          const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 2000);
+          if (res.ok) {
+            clearInterval(autoReconnectInterval);
+            autoReconnectInterval = null;
+            loadStocks();
+            loadRecommendations(currentRecCat, currentRecMkt, false);
+          }
+        } catch(e) {}
+      }, 3000);
+    }
+
+    function startKeepAlivePolling() {
+      if (autoReconnectInterval) clearInterval(autoReconnectInterval);
+      autoReconnectInterval = setInterval(async () => {
+        try {
+          const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 2500);
+          if (!res.ok) throw new Error();
+        } catch(e) {
+          isApiConnected = false;
+          const statusEl = document.getElementById("apiStatus");
+          if (statusEl) {
+            statusEl.className = "status-badge status-disconnected";
+            statusEl.textContent = `API: Disconnected (Click to Retry)`;
+          }
+          const banner = document.getElementById("apiOfflineBanner");
+          if (banner) banner.style.display = "flex";
+          startAutoReconnect();
+        }
+      }, 15000);
     }
 
     function quickSelect(symbol, name) {
@@ -1554,7 +1680,7 @@
 
       try {
         // 1. Fetch prediction, multi-horizon projection & optimal holding duration
-        const predRes = await fetch(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`);
+        const predRes = await fetchWithTimeout(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`, {}, 4500);
         if (predRes.ok) {
           const data = await predRes.json();
           updatePredictionUI(data);
@@ -1616,25 +1742,39 @@
         }
 
         // 2. Fetch history for chart
-        const histRes = await fetch(`${API_BASE}/stocks/${symbol}/history?limit=30`);
-        if (histRes.ok) {
-          const histData = await histRes.json();
-          updateChart(histData.history, symbol);
-          if (histData.history.length > 0) {
-            const last = histData.history[histData.history.length - 1];
-            document.getElementById("metricClose").textContent = last.close.toFixed(2);
-            document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
-            if (last.volatility_20d !== undefined && last.volatility_20d !== null) {
-              document.getElementById("metricVol").textContent = (last.volatility_20d * 100).toFixed(1) + "%";
+        try {
+          const histRes = await fetchWithTimeout(`${API_BASE}/stocks/${symbol}/history?limit=30`, {}, 3500);
+          if (histRes.ok) {
+            const histData = await histRes.json();
+            updateChart(histData.history, symbol);
+            if (histData.history.length > 0) {
+              const last = histData.history[histData.history.length - 1];
+              document.getElementById("metricClose").textContent = last.close.toFixed(2);
+              document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
+              if (last.volatility_20d !== undefined && last.volatility_20d !== null) {
+                document.getElementById("metricVol").textContent = (last.volatility_20d * 100).toFixed(1) + "%";
+              }
             }
           }
+        } catch(chartErr) {
+          console.warn("Chart fetch error:", chartErr);
         }
 
         // 3. Fetch real-time open-source news
-        await fetchLiveNews(symbol);
+        try {
+          await fetchLiveNews(symbol);
+        } catch(newsErr) {
+          console.warn("News fetch error:", newsErr);
+        }
 
       } catch (err) {
         console.error("Prediction error:", err);
+        document.getElementById("predLabel").textContent = "API OFFLINE";
+        document.getElementById("predConfidence").textContent = "Backend server not responding at " + (API_BASE || "http://localhost:8000") + ". Please start the server or double-click start_server.bat.";
+        const box = document.getElementById("predictionBox");
+        box.className = "prediction-box pred-neutral";
+        const banner = document.getElementById("apiOfflineBanner");
+        if (banner) banner.style.display = "flex";
       } finally {
         btn.disabled = false;
         btn.textContent = "Run Prediction";
@@ -1833,7 +1973,7 @@
       newsGrid.innerHTML = `<div class="news-card"><div class="news-title">Fetching real-time news for ${symbol}...</div></div>`;
 
       try {
-        const res = await fetch(`${API_BASE}/stocks/${symbol}/news?limit=6`);
+        const res = await fetchWithTimeout(`${API_BASE}/stocks/${symbol}/news?limit=6`, {}, 4000);
         if (!res.ok) throw new Error("Could not fetch news");
         const data = await res.json();
 
@@ -1975,7 +2115,7 @@
 
       try {
         const url = `${API_BASE}/stocks/recommendations?category=${encodeURIComponent(cat)}&market=${encodeURIComponent(mkt)}&limit=12&force_refresh=${forceRefresh}`;
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url, {}, 8000);
         if (!res.ok) throw new Error("Could not fetch recommendations");
         const data = await res.json();
         renderRecommendations(data);
