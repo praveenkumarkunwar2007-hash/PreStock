@@ -1361,6 +1361,8 @@
       }
     }
 
+    let currentLoadedSymbol = null;
+
     function onHorizonSliderInput(val) {
       const days = Math.max(1, Math.min(45, parseInt(val) || 5));
       updateHorizonBadge(days);
@@ -1369,11 +1371,11 @@
       const horizonTitle = document.getElementById("predHorizonTitle");
       if (horizonTitle) horizonTitle.textContent = `${days}-Day Expected Direction`;
 
-      // Debounce prediction update while dragging
+      // Debounce fast prediction update while dragging (horizon-only, no redundant chart re-renders)
       clearTimeout(horizonDebounceTimer);
       horizonDebounceTimer = setTimeout(() => {
-        runPrediction(days);
-      }, 180);
+        runPrediction(days, true);
+      }, 120);
     }
 
     function onHorizonSliderChange(val) {
@@ -1386,7 +1388,7 @@
       const horizonTitle = document.getElementById("predHorizonTitle");
       if (horizonTitle) horizonTitle.textContent = `${days}-Day Expected Direction`;
 
-      runPrediction(days);
+      runPrediction(days, true);
     }
 
     function setHorizonPreset(val) {
@@ -1401,7 +1403,7 @@
       const horizonTitle = document.getElementById("predHorizonTitle");
       if (horizonTitle) horizonTitle.textContent = `${days}-Day Expected Direction`;
 
-      runPrediction(days);
+      runPrediction(days, true);
     }
 
     function updateHorizonBadge(days) {
@@ -1651,7 +1653,7 @@
       }
     });
 
-    async function runPrediction(horizonDays = null) {
+    async function runPrediction(horizonDays = null, horizonOnly = false) {
       // Prioritize search input if user typed a symbol but didn't click dropdown
       const searchVal = document.getElementById("stockSearchInput").value.trim().toUpperCase();
       let symbol = document.getElementById("stockSelect").value;
@@ -1659,7 +1661,7 @@
         selectStock(searchVal, searchVal);
         return;
       }
-      if (!symbol) return;
+      if (!symbol) symbol = "AAPL";
 
       const days = horizonDays ? parseInt(horizonDays) : (parseInt(document.getElementById("horizonSlider")?.value) || currentHorizonDays || 5);
       const safeDays = Math.max(1, Math.min(45, days));
@@ -1667,21 +1669,36 @@
       updateHorizonBadge(safeDays);
       updateActiveChip(safeDays);
 
+      const horizonTitle = document.getElementById("predHorizonTitle");
+      if (horizonTitle) horizonTitle.textContent = `${safeDays}-Day Expected Direction`;
+
       const btn = document.getElementById("predictBtn");
       btn.disabled = true;
       btn.textContent = `Analyzing ${symbol} (${safeDays}D)...`;
-      document.getElementById("chartHeading").textContent = `Price History & Trends for ${symbol} (Recent Sessions)`;
-      if (document.getElementById("rationaleActiveSymbol")) {
-        document.getElementById("rationaleActiveSymbol").textContent = symbol;
-      }
-      if (document.getElementById("newsActiveSymbol")) {
-        document.getElementById("newsActiveSymbol").textContent = symbol;
+
+      if (!horizonOnly) {
+        document.getElementById("chartHeading").textContent = `Price History & Trends for ${symbol} (Recent Sessions)`;
+        if (document.getElementById("rationaleActiveSymbol")) {
+          document.getElementById("rationaleActiveSymbol").textContent = symbol;
+        }
+        if (document.getElementById("newsActiveSymbol")) {
+          document.getElementById("newsActiveSymbol").textContent = symbol;
+        }
       }
 
       try {
-        // 1. Fetch prediction, multi-horizon projection & optimal holding duration
-        const predRes = await fetchWithTimeout(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`, {}, 4500);
-        if (predRes.ok) {
+        // Fast parallel fetch: prediction calculation is always fetched
+        const predPromise = fetchWithTimeout(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`, {}, 4500);
+
+        // Fetch chart history and live news only when asset changes or full run is requested
+        const shouldFetchAsset = !horizonOnly || currentLoadedSymbol !== symbol;
+        const histPromise = shouldFetchAsset ? fetchWithTimeout(`${API_BASE}/stocks/${symbol}/history?limit=30`, {}, 3500) : Promise.resolve(null);
+        const newsPromise = shouldFetchAsset ? fetchLiveNews(symbol) : Promise.resolve(null);
+
+        const [predRes, histRes] = await Promise.all([predPromise, histPromise]);
+        currentLoadedSymbol = symbol;
+
+        if (predRes && predRes.ok) {
           const data = await predRes.json();
           updatePredictionUI(data);
           updateRationaleUI(data.rationale);
@@ -1710,7 +1727,7 @@
           if (data.volume_ratio !== undefined) {
             document.getElementById("metricVolumeRatio").textContent = `${data.volume_ratio.toFixed(2)}x`;
           }
-        } else {
+        } else if (predRes) {
           let errDetail = "Could not fetch sufficient historical data for this ticker.";
           try {
             const errJson = await predRes.json();
@@ -1741,30 +1758,18 @@
           }
         }
 
-        // 2. Fetch history for chart
-        try {
-          const histRes = await fetchWithTimeout(`${API_BASE}/stocks/${symbol}/history?limit=30`, {}, 3500);
-          if (histRes.ok) {
-            const histData = await histRes.json();
-            updateChart(histData.history, symbol);
-            if (histData.history.length > 0) {
-              const last = histData.history[histData.history.length - 1];
-              document.getElementById("metricClose").textContent = last.close.toFixed(2);
-              document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
-              if (last.volatility_20d !== undefined && last.volatility_20d !== null) {
-                document.getElementById("metricVol").textContent = (last.volatility_20d * 100).toFixed(1) + "%";
-              }
+        // Render chart if histRes was fetched
+        if (histRes && histRes.ok) {
+          const histData = await histRes.json();
+          updateChart(histData.history, symbol);
+          if (histData.history && histData.history.length > 0) {
+            const last = histData.history[histData.history.length - 1];
+            document.getElementById("metricClose").textContent = last.close.toFixed(2);
+            document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
+            if (last.volatility_20d !== undefined && last.volatility_20d !== null) {
+              document.getElementById("metricVol").textContent = (last.volatility_20d * 100).toFixed(1) + "%";
             }
           }
-        } catch(chartErr) {
-          console.warn("Chart fetch error:", chartErr);
-        }
-
-        // 3. Fetch real-time open-source news
-        try {
-          await fetchLiveNews(symbol);
-        } catch(newsErr) {
-          console.warn("News fetch error:", newsErr);
         }
 
       } catch (err) {
@@ -1776,6 +1781,9 @@
         const banner = document.getElementById("apiOfflineBanner");
         if (banner) banner.style.display = "flex";
       } finally {
+        btn.disabled = false;
+        btn.textContent = "Run Prediction";
+      }
         btn.disabled = false;
         btn.textContent = "Run Prediction";
       }
@@ -2308,7 +2316,7 @@
       loadRecommendations();
       initViewFromHash();
     };
-    document.getElementById("stockSelect").addEventListener("change", runPrediction);
+    document.getElementById("stockSelect").addEventListener("change", () => runPrediction(currentHorizonDays, false));
   </script>
 </body>
 </html>

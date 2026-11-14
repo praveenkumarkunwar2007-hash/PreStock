@@ -21,15 +21,19 @@ class StockDataService:
         self._df: Optional[pd.DataFrame] = None
         self._last_mtimes: Dict[Path, float] = {}
         self._live_cache: Dict[str, pd.DataFrame] = {}
+        self._symbol_map: Dict[str, pd.DataFrame] = {}
+        self._cached_stock_list: List[Dict[str, Any]] = []
+        self._latest_features_cache: Dict[str, Dict[str, Any]] = {}
+        self._history_cache: Dict[str, List[Dict[str, Any]]] = {}
 
-    def get_all_features_df(self) -> pd.DataFrame:
+    def _ensure_indexed(self):
         current_mtimes = {}
         for p in [INDIAN_FEATURES_FILE, US_FEATURES_FILE, IPO_FEATURES_FILE]:
             if p.exists():
                 current_mtimes[p] = p.stat().st_mtime
 
-        if self._df is not None and current_mtimes == self._last_mtimes:
-            return self._df
+        if self._df is not None and current_mtimes == self._last_mtimes and self._cached_stock_list:
+            return
 
         dfs = []
         if INDIAN_FEATURES_FILE.exists():
@@ -38,33 +42,105 @@ class StockDataService:
             dfs.append(pd.read_csv(US_FEATURES_FILE))
         if IPO_FEATURES_FILE.exists():
             dfs.append(pd.read_csv(IPO_FEATURES_FILE))
+
         if not dfs:
-            return pd.DataFrame()
+            self._df = pd.DataFrame()
+            self._symbol_map = {}
+            self._cached_stock_list = []
+            self._latest_features_cache = {}
+            self._history_cache = {}
+            return
+
         combined = pd.concat(dfs, ignore_index=True)
         combined["Date"] = pd.to_datetime(combined["Date"])
         self._df = combined
         self._last_mtimes = current_mtimes
-        return self._df
 
-    def list_stocks(self) -> List[Dict[str, Any]]:
-        df = self.get_all_features_df()
-        if df.empty:
-            return []
+        # Build in-memory fast index for sub-millisecond retrieval
+        symbol_map: Dict[str, pd.DataFrame] = {}
+        stock_list: List[Dict[str, Any]] = []
+        latest_cache: Dict[str, Dict[str, Any]] = {}
+        history_cache: Dict[str, List[Dict[str, Any]]] = {}
 
-        stocks = []
-        for symbol, group in df.groupby("Symbol"):
+        for sym, group in combined.groupby("Symbol"):
+            sym_str = str(sym).upper().strip()
             sorted_group = group.sort_values("Date")
-            last_row = sorted_group.iloc[-1]
+            symbol_map[sym_str] = sorted_group
+
+            last_row = sorted_group.iloc[-1].to_dict()
+            last_row["Symbol"] = sym_str
             date_str = str(last_row.get("Date", "")).split()[0]
-            stocks.append({
-                "symbol": str(symbol),
+            try:
+                close_price = float(last_row.get("Close", 1.0) or 1.0)
+            except (ValueError, TypeError):
+                close_price = 1.0
+            if close_price <= 0:
+                close_price = 1.0
+
+            # Pre-calculate normalized MACD features
+            if "MACD_pct" not in last_row and "MACD" in last_row:
+                last_row["MACD_pct"] = float(last_row["MACD"]) / close_price
+            if "MACD_Signal_pct" not in last_row and "MACD_Signal" in last_row:
+                last_row["MACD_Signal_pct"] = float(last_row["MACD_Signal"]) / close_price
+            if "MACD_Histogram_pct" not in last_row and "MACD_Histogram" in last_row:
+                last_row["MACD_Histogram_pct"] = float(last_row["MACD_Histogram"]) / close_price
+
+            latest_cache[sym_str] = last_row
+
+            # Pre-compute formatted history list for instant slicing
+            sym_records = []
+            for r in sorted_group.to_dict("records"):
+                d_val = str(r.get("Date", "")).split()[0]
+                s20 = r.get("SMA_20")
+                s50 = r.get("SMA_50")
+                sym_records.append({
+                    "date": d_val,
+                    "open": float(r.get("Open", 0.0) or 0.0),
+                    "high": float(r.get("High", 0.0) or 0.0),
+                    "low": float(r.get("Low", 0.0) or 0.0),
+                    "close": float(r.get("Close", 0.0) or 0.0),
+                    "volume": float(r.get("Volume", 0.0) or 0.0),
+                    "sma_20": round(float(s20), 2) if pd.notna(s20) and s20 is not None else None,
+                    "sma_50": round(float(s50), 2) if pd.notna(s50) and s50 is not None else None,
+                    "rsi_14": round(float(r.get("RSI_14", 0.0) or 0.0), 2),
+                    "daily_return": round(float(r.get("Daily_Return", 0.0) or 0.0), 4),
+                    "return_5d": round(float(r.get("Return_5D", 0.0) or 0.0), 4),
+                    "volatility_20d": round(float(r.get("Volatility_20D", 0.0) or 0.0), 4),
+                    "volume_ratio": round(float(r.get("Volume_Ratio", 1.0) or 1.0), 2)
+                })
+            history_cache[sym_str] = sym_records
+
+            # If symbol ends in .NS, alias base symbol for instant resolution
+            if sym_str.endswith(".NS"):
+                base_sym = sym_str[:-3]
+                if base_sym not in latest_cache:
+                    latest_cache[base_sym] = last_row
+                if base_sym not in symbol_map:
+                    symbol_map[base_sym] = sorted_group
+                if base_sym not in history_cache:
+                    history_cache[base_sym] = sym_records
+
+            stock_list.append({
+                "symbol": sym_str,
                 "exchange": str(last_row.get("Exchange", "")),
                 "market": str(last_row.get("Market", "")),
                 "latest_date": date_str,
                 "latest_close": float(last_row.get("Close", 0.0)),
                 "records_count": len(sorted_group)
             })
-        return sorted(stocks, key=lambda x: x["symbol"])
+
+        self._symbol_map = symbol_map
+        self._cached_stock_list = sorted(stock_list, key=lambda x: x["symbol"])
+        self._latest_features_cache = latest_cache
+        self._history_cache = history_cache
+
+    def get_all_features_df(self) -> pd.DataFrame:
+        self._ensure_indexed()
+        return self._df
+
+    def list_stocks(self) -> List[Dict[str, Any]]:
+        self._ensure_indexed()
+        return self._cached_stock_list
 
     def search_stocks(self, query: str) -> List[Dict[str, Any]]:
         """
@@ -181,82 +257,76 @@ class StockDataService:
         return None
 
     def get_latest_features(self, symbol: str) -> Optional[Dict[str, Any]]:
+        self._ensure_indexed()
         clean_sym = symbol.strip().upper()
-        df = self.get_all_features_df()
 
+        # Fast O(1) in-memory lookup
         candidates = [clean_sym]
         if "." not in clean_sym:
             candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
 
-        stock_df = pd.DataFrame()
-        resolved_sym = clean_sym
-        if not df.empty:
-            for cand in candidates:
-                match = df[df["Symbol"].astype(str).str.upper() == cand]
-                if not match.empty:
-                    stock_df = match.sort_values("Date")
-                    resolved_sym = cand
-                    break
+        for cand in candidates:
+            if cand in self._latest_features_cache:
+                return dict(self._latest_features_cache[cand])
+
+        # Check live cache
+        for cand in candidates:
+            if cand in self._live_cache:
+                live_df = self._live_cache[cand]
+                if not live_df.empty:
+                    last_row = live_df.iloc[-1].to_dict()
+                    last_row["Symbol"] = cand
+                    return last_row
 
         # Fallback to live data for IPO or new stocks
-        if stock_df.empty:
-            live_df = self._fetch_and_compute_live(clean_sym)
-            if live_df is not None and not live_df.empty:
-                stock_df = live_df
-                resolved_sym = str(live_df.iloc[-1].get("Symbol", clean_sym)).upper()
+        live_df = self._fetch_and_compute_live(clean_sym)
+        if live_df is not None and not live_df.empty:
+            resolved_sym = str(live_df.iloc[-1].get("Symbol", clean_sym)).upper()
+            last_row = live_df.iloc[-1].to_dict()
+            last_row["Symbol"] = resolved_sym
+            return last_row
 
-        if stock_df.empty:
-            return None
-
-        last_row = stock_df.iloc[-1].to_dict()
-        last_row["Symbol"] = resolved_sym
-
-        # Safe close price for normalization
-        try:
-            close_price = float(last_row.get("Close", 1.0) or 1.0)
-        except (ValueError, TypeError):
-            close_price = 1.0
-        if close_price <= 0:
-            close_price = 1.0
-
-        if "MACD_pct" not in last_row and "MACD" in last_row:
-            last_row["MACD_pct"] = float(last_row["MACD"]) / close_price
-        if "MACD_Signal_pct" not in last_row and "MACD_Signal" in last_row:
-            last_row["MACD_Signal_pct"] = float(last_row["MACD_Signal"]) / close_price
-        if "MACD_Histogram_pct" not in last_row and "MACD_Histogram" in last_row:
-            last_row["MACD_Histogram_pct"] = float(last_row["MACD_Histogram"]) / close_price
-
-        return last_row
+        return None
 
     def get_stock_history(self, symbol: str, limit: int = 30) -> List[Dict[str, Any]]:
+        self._ensure_indexed()
         safe_limit = max(1, min(int(limit), 500))
         clean_sym = symbol.strip().upper()
-        df = self.get_all_features_df()
 
         candidates = [clean_sym]
         if "." not in clean_sym:
             candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
 
-        stock_df = pd.DataFrame()
-        if not df.empty:
+        # Instant O(1) retrieval from pre-computed history cache
+        for cand in candidates:
+            if cand in self._history_cache:
+                return self._history_cache[cand][-safe_limit:]
+
+        stock_df = None
+        for cand in candidates:
+            if cand in self._symbol_map:
+                stock_df = self._symbol_map[cand]
+                break
+
+        # Fallback to live cache or live fetch
+        if stock_df is None or stock_df.empty:
             for cand in candidates:
-                match = df[df["Symbol"].astype(str).str.upper() == cand]
-                if not match.empty:
-                    stock_df = match.sort_values("Date")
+                if cand in self._live_cache:
+                    stock_df = self._live_cache[cand]
                     break
 
-        # Fallback to live data for IPO or new stocks
-        if stock_df.empty:
+        if stock_df is None or stock_df.empty:
             live_df = self._fetch_and_compute_live(clean_sym)
             if live_df is not None and not live_df.empty:
                 stock_df = live_df
 
-        if stock_df.empty:
+        if stock_df is None or stock_df.empty:
             return []
 
         tail = stock_df.tail(safe_limit)
+        # Vectorized list comprehension
         records = []
-        for _, row in tail.iterrows():
+        for row in tail.to_dict("records"):
             date_val = str(row.get("Date", "")).split()[0]
             sma_20_val = row.get("SMA_20")
             sma_50_val = row.get("SMA_50")
