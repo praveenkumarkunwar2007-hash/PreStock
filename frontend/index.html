@@ -929,6 +929,7 @@
     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
       <div class="status-badge status-connecting" id="apiStatus" onclick="retryConnection()" title="Click to test API connection">API: Connecting...</div>
       <button class="btn-api-config" onclick="promptApiUrl()">⚙️ Backend URL</button>
+      <button class="btn-api-config" onclick="openGroqConfigModal()" style="background: rgba(99, 102, 241, 0.15) !important; color: #a5b4fc !important; border-color: rgba(99, 102, 241, 0.4) !important;">⚡ Groq AI (Free LLaMA 3.3)</button>
     </div>
   </div>
 
@@ -1284,6 +1285,30 @@
           </div>
         </div>
       </div>
+
+      <!-- GROQ AI QUANTITATIVE ANALYST MEMO -->
+      <div class="card" style="margin-top: 1.5rem; background: #0f172a; border: 1px solid #4338ca;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+          <h3 style="color: #a5b4fc; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚡ Groq AI Market Intelligence Memo</span>
+            <span id="groqProviderBadge" style="font-size: 0.72rem; padding: 0.2rem 0.55rem; background: #312e81; color: #c7d2fe; border-radius: 9999px; font-weight: 700;">LLaMA 3.3 70B (Free Tier)</span>
+          </h3>
+          <div style="display: flex; gap: 0.4rem;">
+            <button type="button" onclick="runGroqAIAnalysis()" id="btnRunGroq" style="width: auto !important; padding: 0.35rem 0.85rem; font-size: 0.82rem; background: #4f46e5; color: #fff; border-radius: 0.35rem; cursor: pointer;">⚡ Re-Analyze with Groq</button>
+            <button type="button" onclick="openGroqConfigModal()" style="width: auto !important; padding: 0.35rem 0.65rem; font-size: 0.82rem; background: #1e1b4b; color: #a5b4fc; border: 1px solid #4338ca; border-radius: 0.35rem; cursor: pointer;">⚙️ API Key</button>
+          </div>
+        </div>
+
+        <div id="groqAnalysisOutput" style="background: #172033; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; font-size: 0.92rem; line-height: 1.6; color: #e2e8f0; white-space: pre-wrap;">
+          Run prediction or select a stock to generate an institutional Groq AI investment memo.
+        </div>
+
+        <!-- Custom Prompt Input -->
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+          <input type="text" id="groqCustomPrompt" placeholder="Ask Groq AI about this stock (e.g. 'Is this a good swing trade for next week?')..." style="margin-bottom: 0; flex: 1;" onkeydown="if(event.key==='Enter') runGroqAIAnalysis();" />
+          <button type="button" onclick="runGroqAIAnalysis()" style="width: auto; padding: 0 1.25rem; white-space: nowrap; background: #4f46e5; color: #fff;">Ask AI</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1320,12 +1345,141 @@
     </div>
   </div>
 
+  <!-- GROQ API CONFIG MODAL -->
+  <div id="groqModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
+    <div style="background: #1e293b; border: 1px solid #6366f1; border-radius: 0.75rem; max-width: 520px; width: 100%; padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.85);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="color: #a5b4fc; font-size: 1.15rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>⚡ Groq Cloud AI Integration</span>
+        </h3>
+        <button type="button" onclick="closeGroqConfigModal()" style="width: auto; background: none; border: none; color: var(--muted); font-size: 1.25rem; cursor: pointer; padding: 0;">✕</button>
+      </div>
+      <p style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 1rem;">
+        This platform connects to <strong>Groq Cloud API (Free Tier)</strong> powered by <strong>LLaMA 3.3 70B Versatile</strong> to generate sub-second institutional quantitative analyst research and catalyst breakdowns.
+      </p>
+      <div style="background: #0f172a; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.82rem; color: var(--muted); line-height: 1.5;">
+        ✨ <strong>100% Free:</strong> You can get a free Groq API key in 10 seconds at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent); text-decoration: underline;">console.groq.com/keys</a>. If no key is set, the website automatically operates using the built-in free quantitative intelligence engine.
+      </div>
+      <label style="font-size: 0.85rem; font-weight: 700; color: #f8fafc; display: block; margin-bottom: 0.35rem;">Your Free Groq API Key (Optional):</label>
+      <input type="password" id="groqApiKeyInput" placeholder="gsk_..." style="margin-bottom: 1rem;" />
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button type="button" onclick="clearGroqApiKey()" style="width: auto; background: #334155; color: #f8fafc; font-size: 0.85rem; padding: 0.5rem 1rem;">Clear Key</button>
+        <button type="button" onclick="saveGroqApiKey()" style="width: auto; background: #4f46e5; color: #fff; font-size: 0.85rem; padding: 0.5rem 1.25rem;">Save & Apply</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     function resetApiToSameOrigin() {
       localStorage.removeItem("PRESTOCK_API_URL");
       API_BASE = getApiBase();
       loadStocks();
       loadRecommendations(currentRecCat, currentRecMkt, false);
+    }
+
+    // GROQ AI (FREE TIER) HELPER FUNCTIONS
+    function formatMarkdown(text) {
+      if (!text) return "";
+      return text
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/^### (.*$)/gim, '<h4 style="color: #a5b4fc; margin-top: 0.85rem; margin-bottom: 0.35rem; font-size: 0.98rem; font-weight: 700;">$1</h4>')
+        .replace(/^## (.*$)/gim, '<h3 style="color: var(--accent); margin-top: 1rem; margin-bottom: 0.45rem; font-size: 1.05rem; font-weight: 700;">$1</h3>')
+        .replace(/^# (.*$)/gim, '<h2 style="color: #fff; margin-top: 1.15rem; margin-bottom: 0.55rem; font-size: 1.15rem;">$1</h2>')
+        .replace(/\*\*(.*?)\*\*/gim, '<strong style="color: #fff;">$1</strong>')
+        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+        .replace(/^---$/gim, '<hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.75rem 0;" />')
+        .replace(/^\- (.*$)/gim, '<div style="margin-left: 0.75rem; margin-bottom: 0.3rem;">• $1</div>')
+        .replace(/\n\n/g, '<div style="height: 0.45rem;"></div>')
+        .replace(/\n/g, '<br />');
+    }
+
+    function getGroqApiKey() {
+      return localStorage.getItem("GROQ_API_KEY") || "";
+    }
+
+    function openGroqConfigModal() {
+      const modal = document.getElementById("groqModal");
+      if (modal) {
+        document.getElementById("groqApiKeyInput").value = getGroqApiKey();
+        modal.style.display = "flex";
+      }
+    }
+
+    function closeGroqConfigModal() {
+      const modal = document.getElementById("groqModal");
+      if (modal) modal.style.display = "none";
+    }
+
+    function saveGroqApiKey() {
+      const key = document.getElementById("groqApiKeyInput").value.trim();
+      if (key) {
+        localStorage.setItem("GROQ_API_KEY", key);
+        alert("Groq API Key saved successfully! Live LLaMA 3.3 70B analysis is now active.");
+      } else {
+        localStorage.removeItem("GROQ_API_KEY");
+      }
+      closeGroqConfigModal();
+      runGroqAIAnalysis();
+    }
+
+    function clearGroqApiKey() {
+      localStorage.removeItem("GROQ_API_KEY");
+      document.getElementById("groqApiKeyInput").value = "";
+      alert("Groq API Key cleared. Default free quant engine active.");
+      closeGroqConfigModal();
+    }
+
+    function renderGroqAnalysis(data) {
+      if (!data) return;
+      const outputEl = document.getElementById("groqAnalysisOutput");
+      const badgeEl = document.getElementById("groqProviderBadge");
+      if (outputEl && data.ai_analysis) {
+        outputEl.innerHTML = formatMarkdown(data.ai_analysis);
+      }
+      if (badgeEl && data.provider) {
+        badgeEl.textContent = `${data.provider} (${data.model || 'LLaMA 3.3'})`;
+      }
+    }
+
+    async function runGroqAIAnalysis() {
+      const symbol = currentLoadedSymbol || document.getElementById("stockSelect")?.value || "AAPL";
+      const days = currentHorizonDays || 5;
+      const customPrompt = document.getElementById("groqCustomPrompt")?.value.trim() || "";
+      const outputEl = document.getElementById("groqAnalysisOutput");
+      const badgeEl = document.getElementById("groqProviderBadge");
+      const btn = document.getElementById("btnRunGroq");
+
+      if (outputEl) outputEl.innerHTML = `<span style="color: var(--accent);">⚡ Calling Groq LPU API (LLaMA 3.3 70B)... Analyzing market structure, indicators, and optimal holding period for ${symbol}...</span>`;
+      if (btn) btn.disabled = true;
+
+      try {
+        const key = getGroqApiKey();
+        const headers = { "Content-Type": "application/json" };
+        if (key) headers["X-Groq-Api-Key"] = key;
+
+        const res = await fetchWithTimeout(`${API_BASE}/predict/ai-analysis`, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            symbol: symbol,
+            days: days,
+            user_prompt: customPrompt || null,
+            groq_api_key: key || null
+          })
+        }, 9000);
+
+        if (res && res.ok) {
+          const data = await res.json();
+          renderGroqAnalysis(data);
+        } else {
+          if (outputEl) outputEl.textContent = "Could not fetch Groq AI analysis. Please verify your connection or stock symbol.";
+        }
+      } catch (err) {
+        console.error("Groq AI Error:", err);
+        if (outputEl) outputEl.textContent = "Error communicating with Groq AI service. Operating on fallback quant engine.";
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     function getApiBase() {
@@ -1722,6 +1876,9 @@
           updatePredictionUI(data);
           updateRationaleUI(data.rationale);
           renderOptimalHoldingUI(data);
+          if (data.ai_analysis) {
+            renderGroqAnalysis(data.ai_analysis);
+          }
 
           const curSym = (symbol && (symbol.endsWith(".NS") || symbol.endsWith(".BO"))) ? "₹" : "$";
           if (data.latest_close) document.getElementById("metricClose").textContent = `${curSym}${data.latest_close.toFixed(2)}`;
