@@ -717,6 +717,186 @@
       font-size: 0.88rem;
     }
 
+    /* HORIZON SLIDER & CHIPS */
+    .horizon-control-card {
+      margin-top: 0.85rem;
+      margin-bottom: 0.85rem;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.85rem;
+    }
+    .horizon-badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: var(--accent);
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .horizon-slider {
+      width: 100%;
+      height: 6px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      margin: 0.4rem 0 0.5rem 0;
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    .horizon-chips {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .h-chip {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.35rem 0.65rem;
+      border-radius: 0.35rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: auto;
+      margin-bottom: 0;
+    }
+    .h-chip:hover {
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .h-chip.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* OPTIMAL HOLDING CARD & TRAJECTORY */
+    .holding-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .holding-kpi-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .holding-kpi-val {
+      font-size: 1.45rem;
+      font-weight: 800;
+      margin-bottom: 0.25rem;
+    }
+    .holding-kpi-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .holding-kpi-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .holding-rationale-box {
+      background: #090e17;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 0.5rem;
+      padding: 1rem 1.15rem;
+    }
+    .strategy-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.3rem 0.7rem;
+      border-radius: 9999px;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .trajectory-table-wrapper {
+      overflow-x: auto;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: #0f172a;
+    }
+    .trajectory-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+    .trajectory-table th {
+      background: #172033;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+    }
+    .trajectory-table td {
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+    }
+    .trajectory-table tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .trajectory-table tr.optimal-row td {
+      background: rgba(34, 197, 94, 0.08);
+      font-weight: 600;
+    }
+    .trajectory-table tr.optimal-row {
+      border-left: 3px solid var(--profit);
+    }
+    .trajectory-table tr.selected-row td {
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .traj-tag-peak {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 0.68rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 9999px;
+      letter-spacing: 0.03em;
+    }
+    .traj-tag-selected {
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.68rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 9999px;
+    }
+    .traj-apply-btn {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 0.3rem 0.6rem;
+      border-radius: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: auto !important;
+      margin: 0 !important;
+      transition: all 0.15s;
+    }
+    .traj-apply-btn:hover {
+      background: var(--accent);
+      color: #0f172a;
+    }
+
     @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
       .signals-grid { grid-template-columns: 1fr; }
@@ -729,7 +909,7 @@
   <div class="header">
     <div>
       <h1>AI Stock Predictor</h1>
-      <p style="color: var(--muted); font-size: 0.9rem;">5-Day Movement Classifier (XGBoost v2) with Live IPO Search, Market Rationale & News</p>
+      <p style="color: var(--muted); font-size: 0.9rem;">Multi-Horizon (1–45 Days) AI Stock & IPO Predictor with Optimal Holding Duration Calculator</p>
     </div>
     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
       <div class="status-badge" id="apiStatus">API: Connecting...</div>
@@ -812,6 +992,44 @@
           <option value="HDFCBANK.NS">HDFCBANK.NS (India - NSE)</option>
         </select>
 
+        <!-- FLEXIBLE PREDICTION HORIZON (1 TO 45 DAYS) -->
+        <div class="horizon-control-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: #f8fafc;">
+              ⏱️ Forecast Horizon (1 to 45 Days):
+            </label>
+            <span id="horizonDaysBadge" class="horizon-badge">5 Trading Days (~1 Wk)</span>
+          </div>
+          <input
+            type="range"
+            id="horizonSlider"
+            min="1"
+            max="45"
+            value="5"
+            step="1"
+            class="horizon-slider"
+            oninput="onHorizonSliderInput(this.value)"
+            onchange="onHorizonSliderChange(this.value)"
+          />
+          <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.5rem;">
+            <span>1D (Next Day)</span>
+            <span>5D (1 Wk)</span>
+            <span>15D (3 Wks)</span>
+            <span>30D (1 Mo)</span>
+            <span>45D (Max)</span>
+          </div>
+          <div class="horizon-chips">
+            <button type="button" class="h-chip" data-day="1" onclick="setHorizonPreset(1)">1D</button>
+            <button type="button" class="h-chip" data-day="3" onclick="setHorizonPreset(3)">3D</button>
+            <button type="button" class="h-chip active" data-day="5" onclick="setHorizonPreset(5)">5D (Default)</button>
+            <button type="button" class="h-chip" data-day="10" onclick="setHorizonPreset(10)">10D</button>
+            <button type="button" class="h-chip" data-day="15" onclick="setHorizonPreset(15)">15D</button>
+            <button type="button" class="h-chip" data-day="21" onclick="setHorizonPreset(21)">21D (~1 Mo)</button>
+            <button type="button" class="h-chip" data-day="30" onclick="setHorizonPreset(30)">30D</button>
+            <button type="button" class="h-chip" data-day="45" onclick="setHorizonPreset(45)">45D (Max)</button>
+          </div>
+        </div>
+
         <button id="predictBtn" onclick="runPrediction()">Run Prediction</button>
 
         <div id="stockMetrics" style="margin-top: 1rem;">
@@ -824,9 +1042,10 @@
         </div>
 
         <div id="predictionBox" class="prediction-box pred-neutral">
-          <div class="pred-sub">5-Day Expected Direction</div>
+          <div class="pred-sub" id="predHorizonTitle">5-Day Expected Direction</div>
           <div class="pred-title" id="predLabel">--</div>
           <div class="pred-sub" id="predConfidence">Confidence: --</div>
+          <div id="predTargetReturn" style="font-size: 0.88rem; font-weight: 700; margin-top: 0.45rem; color: var(--profit); display: none;"></div>
           <div class="prob-bar">
             <div id="barLoss" class="bar-loss" style="width: 33%"></div>
             <div id="barNeutral" class="bar-neutral" style="width: 34%"></div>
@@ -845,6 +1064,93 @@
         <h2 id="chartHeading">Price History & Trends (Recent 30 Sessions)</h2>
         <div class="chart-container">
           <canvas id="priceChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEEP CALCULATION: OPTIMAL HOLDING DURATION & MAXIMUM PROFIT STRATEGY CARD -->
+    <div class="card section-full" id="optimalHoldingCard" style="margin-top: 0.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <h2 style="margin-bottom: 0.25rem;">
+            <span>🎯 Deep Calculation: Optimal Holding Duration for Maximum Profit</span>
+            <span class="open-source-tag">Multi-Horizon Drift & Volatility Model</span>
+          </h2>
+          <p style="color: var(--muted); font-size: 0.85rem; margin: 0;">
+            Calculates stochastic drift velocity, momentum persistence decay, and volatility drag across 1 to 45 trading sessions to determine the exact holding period for peak profit.
+          </p>
+        </div>
+        <div id="holdingStrategyBadgeWrapper">
+          <span id="holdingStrategyBadge" class="strategy-badge badge-profit">Peak Profit Window</span>
+        </div>
+      </div>
+
+      <!-- KPI METRICS GRID -->
+      <div class="holding-kpi-grid">
+        <div class="holding-kpi-card" style="border-left: 3px solid var(--accent);">
+          <div class="holding-kpi-label">Optimal Holding Period</div>
+          <div class="holding-kpi-val" id="optDurationVal" style="color: var(--accent);">-- Days</div>
+          <div class="holding-kpi-sub" id="optDurationSub">Peak profit time window</div>
+        </div>
+
+        <div class="holding-kpi-card" style="border-left: 3px solid var(--profit);">
+          <div class="holding-kpi-label">Peak Expected Profit</div>
+          <div class="holding-kpi-val" id="optPeakProfit" style="color: var(--profit);">--%</div>
+          <div class="holding-kpi-sub">Target Exit: <strong id="optTargetPrice" style="color: #fff;">--</strong></div>
+        </div>
+
+        <div class="holding-kpi-card" style="border-left: 3px solid var(--loss);">
+          <div class="holding-kpi-label">Stop-Loss Protection</div>
+          <div class="holding-kpi-val" id="optStopLoss" style="color: var(--loss);">--%</div>
+          <div class="holding-kpi-sub">Stop Price: <strong id="optStopPrice" style="color: #fff;">--</strong></div>
+        </div>
+
+        <div class="holding-kpi-card" style="border-left: 3px solid var(--neutral);">
+          <div class="holding-kpi-label">Risk / Reward Ratio</div>
+          <div class="holding-kpi-val" id="optRiskReward" style="color: var(--neutral);">-- : 1</div>
+          <div class="holding-kpi-sub" id="optEdgeLabel">Asymmetric Edge</div>
+        </div>
+      </div>
+
+      <!-- RATIONALE EXPLANATION -->
+      <div class="holding-rationale-box">
+        <div style="font-weight: 700; color: var(--accent); margin-bottom: 0.35rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>💡 Quantitative Holding Rationale:</span>
+        </div>
+        <p id="optRationaleText" style="margin: 0; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+          Select a stock or run prediction to analyze the mathematically optimal holding period.
+        </p>
+      </div>
+
+      <!-- MILESTONE TRAJECTORY TABLE -->
+      <div style="margin-top: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: #f8fafc; margin: 0;">
+            📈 Day-by-Day Milestone Forecast Trajectory (1 to 45 Days)
+          </h3>
+          <span style="font-size: 0.78rem; color: var(--muted);">Click "Test Horizon" on any row to calculate that specific day</span>
+        </div>
+        <div class="trajectory-table-wrapper">
+          <table class="trajectory-table">
+            <thead>
+              <tr>
+                <th>Horizon</th>
+                <th>Projected Return</th>
+                <th>Target Price</th>
+                <th>Profit Probability</th>
+                <th>Forecast Bias</th>
+                <th>Market Phase</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="trajectoryTableBody">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--muted); padding: 1.5rem;">
+                  Run a stock prediction to view the day-by-day trajectory milestones.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1005,6 +1311,65 @@
     let API_BASE = getApiBase();
     let chartInstance = null;
     let searchDebounceTimer = null;
+    let currentHorizonDays = 5;
+    let horizonDebounceTimer = null;
+
+    function onHorizonSliderInput(val) {
+      const days = Math.max(1, Math.min(45, parseInt(val) || 5));
+      updateHorizonBadge(days);
+      updateActiveChip(days);
+
+      // Debounce prediction update while dragging
+      clearTimeout(horizonDebounceTimer);
+      horizonDebounceTimer = setTimeout(() => {
+        runPrediction(days);
+      }, 180);
+    }
+
+    function onHorizonSliderChange(val) {
+      clearTimeout(horizonDebounceTimer);
+      const days = Math.max(1, Math.min(45, parseInt(val) || 5));
+      currentHorizonDays = days;
+      updateHorizonBadge(days);
+      updateActiveChip(days);
+      runPrediction(days);
+    }
+
+    function setHorizonPreset(val) {
+      clearTimeout(horizonDebounceTimer);
+      const days = Math.max(1, Math.min(45, parseInt(val) || 5));
+      currentHorizonDays = days;
+      const slider = document.getElementById("horizonSlider");
+      if (slider) slider.value = days;
+      updateHorizonBadge(days);
+      updateActiveChip(days);
+      runPrediction(days);
+    }
+
+    function updateHorizonBadge(days) {
+      const badge = document.getElementById("horizonDaysBadge");
+      if (!badge) return;
+      let label = `${days} Trading Day${days > 1 ? 's' : ''}`;
+      if (days === 1) label += " (Intraday/Next)";
+      else if (days === 5) label += " (~1 Wk)";
+      else if (days === 10) label += " (~2 Wks)";
+      else if (days === 15) label += " (~3 Wks)";
+      else if (days === 21) label += " (~1 Mo)";
+      else if (days === 30) label += " (~1.5 Mo)";
+      else if (days === 45) label += " (Max Horizon)";
+      badge.textContent = label;
+    }
+
+    function updateActiveChip(days) {
+      document.querySelectorAll(".horizon-chips .h-chip").forEach(btn => {
+        const btnDay = parseInt(btn.getAttribute("data-day"));
+        if (btnDay === days) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+    }
 
     function promptApiUrl() {
       const current = API_BASE || "http://localhost:8000";
@@ -1160,7 +1525,7 @@
       }
     });
 
-    async function runPrediction() {
+    async function runPrediction(horizonDays = null) {
       // Prioritize search input if user typed a symbol but didn't click dropdown
       const searchVal = document.getElementById("stockSearchInput").value.trim().toUpperCase();
       let symbol = document.getElementById("stockSelect").value;
@@ -1170,9 +1535,15 @@
       }
       if (!symbol) return;
 
+      const days = horizonDays ? parseInt(horizonDays) : (parseInt(document.getElementById("horizonSlider")?.value) || currentHorizonDays || 5);
+      const safeDays = Math.max(1, Math.min(45, days));
+      currentHorizonDays = safeDays;
+      updateHorizonBadge(safeDays);
+      updateActiveChip(safeDays);
+
       const btn = document.getElementById("predictBtn");
       btn.disabled = true;
-      btn.textContent = `Analyzing ${symbol}...`;
+      btn.textContent = `Analyzing ${symbol} (${safeDays}D)...`;
       document.getElementById("chartHeading").textContent = `Price History & Trends for ${symbol} (Recent Sessions)`;
       if (document.getElementById("rationaleActiveSymbol")) {
         document.getElementById("rationaleActiveSymbol").textContent = symbol;
@@ -1182,12 +1553,13 @@
       }
 
       try {
-        // 1. Fetch prediction & rationale
-        const predRes = await fetch(`${API_BASE}/predict/symbol/${symbol}`);
+        // 1. Fetch prediction, multi-horizon projection & optimal holding duration
+        const predRes = await fetch(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`);
         if (predRes.ok) {
           const data = await predRes.json();
           updatePredictionUI(data);
           updateRationaleUI(data.rationale);
+          renderOptimalHoldingUI(data);
 
           if (data.latest_close) document.getElementById("metricClose").textContent = data.latest_close.toFixed(2);
           if (data.daily_return !== undefined) {
@@ -1222,9 +1594,25 @@
           document.getElementById("predConfidence").textContent = `${errDetail} (Requires at least 5 completed trading sessions. For Indian stocks, try appending .NS e.g. ${symbol.replace(/\.NS/i, '')}.NS)`;
           const box = document.getElementById("predictionBox");
           box.className = "prediction-box pred-neutral";
+          const targetRet = document.getElementById("predTargetReturn");
+          if (targetRet) targetRet.style.display = "none";
           document.getElementById("rationaleSummary").innerHTML = `<span style="color: var(--loss);">⚠️ Insufficient data for <strong>${symbol}</strong>:</span> ${errDetail}. If this is an Indian stock, make sure to add the <code>.NS</code> or <code>.BO</code> suffix.`;
           document.getElementById("bullishSignalsContainer").innerHTML = `<div class="signal-item"><div class="signal-desc">No data available to compute indicators.</div></div>`;
           document.getElementById("bearishSignalsContainer").innerHTML = `<div class="signal-item"><div class="signal-desc">No data available to compute indicators.</div></div>`;
+
+          // Clear holding card
+          const optCard = document.getElementById("optimalHoldingCard");
+          if (optCard) {
+            document.getElementById("optDurationVal").textContent = "-- Days";
+            document.getElementById("optDurationSub").textContent = "No data";
+            document.getElementById("optPeakProfit").textContent = "--%";
+            document.getElementById("optTargetPrice").textContent = "--";
+            document.getElementById("optStopLoss").textContent = "--%";
+            document.getElementById("optStopPrice").textContent = "--";
+            document.getElementById("optRiskReward").textContent = "-- : 1";
+            document.getElementById("optRationaleText").textContent = `Could not calculate holding trajectory: ${errDetail}`;
+            document.getElementById("trajectoryTableBody").innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 1.5rem;">No historical data available for this symbol.</td></tr>`;
+          }
         }
 
         // 2. Fetch history for chart
@@ -1257,8 +1645,25 @@
       const box = document.getElementById("predictionBox");
       const label = document.getElementById("predLabel");
       const conf = document.getElementById("predConfidence");
+      const horizonTitle = document.getElementById("predHorizonTitle");
+      const targetReturn = document.getElementById("predTargetReturn");
+
+      const days = data.target_horizon_days || 5;
+      if (horizonTitle) {
+        horizonTitle.textContent = `${days}-Day Expected Direction`;
+      }
+
       label.textContent = data.prediction.toUpperCase();
       conf.textContent = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+
+      if (targetReturn && data.expected_return_pct !== undefined && data.target_price) {
+        const sign = data.expected_return_pct >= 0 ? "+" : "";
+        const curSym = (data.symbol && (data.symbol.endsWith(".NS") || data.symbol.endsWith(".BO"))) ? "₹" : "$";
+        const color = data.expected_return_pct >= 0 ? "var(--profit)" : "var(--loss)";
+        targetReturn.style.display = "block";
+        targetReturn.style.color = color;
+        targetReturn.innerHTML = `Projected: <strong>${sign}${data.expected_return_pct.toFixed(2)}%</strong> (Target: ${curSym}${data.target_price.toFixed(2)})`;
+      }
 
       box.className = "prediction-box " +
         (data.prediction === "Profit" ? "pred-profit" :
@@ -1271,6 +1676,101 @@
       document.getElementById("barLoss").style.width = pLoss + "%";
       document.getElementById("barNeutral").style.width = pNeutral + "%";
       document.getElementById("barProfit").style.width = pProfit + "%";
+
+      document.getElementById("txtLoss").textContent = pLoss + "%";
+      document.getElementById("txtNeutral").textContent = pNeutral + "%";
+      document.getElementById("txtProfit").textContent = pProfit + "%";
+    }
+
+    function renderOptimalHoldingUI(data) {
+      const card = document.getElementById("optimalHoldingCard");
+      if (!card || !data.optimal_holding) return;
+
+      const opt = data.optimal_holding;
+      const curSym = (data.symbol && (data.symbol.endsWith(".NS") || data.symbol.endsWith(".BO"))) ? "₹" : "$";
+
+      // Strategy badge
+      const badge = document.getElementById("holdingStrategyBadge");
+      if (badge) {
+        badge.textContent = opt.strategy_type || "Peak Profit Strategy";
+        const isDefensive = opt.strategy_type && (opt.strategy_type.includes("Exit") || opt.strategy_type.includes("Defensive"));
+        const isSwing = opt.strategy_type && opt.strategy_type.includes("Swing");
+        badge.className = "strategy-badge " + (isDefensive ? "badge-loss" : isSwing ? "badge-neutral" : "badge-profit");
+      }
+
+      // KPIs
+      document.getElementById("optDurationVal").textContent = `${opt.optimal_days} Trading Day${opt.optimal_days > 1 ? 's' : ''}`;
+      document.getElementById("optDurationSub").textContent = opt.duration_label;
+
+      const sign = opt.peak_profit_pct >= 0 ? "+" : "";
+      document.getElementById("optPeakProfit").textContent = `${sign}${opt.peak_profit_pct.toFixed(2)}%`;
+      document.getElementById("optPeakProfit").style.color = opt.peak_profit_pct >= 0 ? "var(--profit)" : "var(--loss)";
+      document.getElementById("optTargetPrice").textContent = `${curSym}${opt.peak_target_price.toFixed(2)}`;
+
+      document.getElementById("optStopLoss").textContent = `-${opt.stop_loss_pct.toFixed(2)}%`;
+      document.getElementById("optStopPrice").textContent = `${curSym}${opt.stop_loss_price.toFixed(2)}`;
+
+      document.getElementById("optRiskReward").textContent = opt.risk_reward_ratio;
+
+      // Rationale
+      document.getElementById("optRationaleText").textContent = opt.rationale;
+
+      // Trajectory Table
+      const tbody = document.getElementById("trajectoryTableBody");
+      tbody.innerHTML = "";
+
+      if (opt.trajectory && opt.trajectory.length > 0) {
+        opt.trajectory.forEach(milestone => {
+          const tr = document.createElement("tr");
+          if (milestone.is_optimal) tr.classList.add("optimal-row");
+          if (milestone.is_user_selected) tr.classList.add("selected-row");
+
+          const retSign = milestone.expected_return_pct >= 0 ? "+" : "";
+          const retColor = milestone.expected_return_pct >= 0 ? "var(--profit)" : "var(--loss)";
+          const probProfit = (milestone.profit_probability * 100).toFixed(0);
+
+          let horizonBadge = "";
+          if (milestone.is_optimal) {
+            horizonBadge = `<span class="traj-tag-peak">🎯 PEAK PROFIT</span> `;
+          }
+          if (milestone.is_user_selected) {
+            horizonBadge += `<span class="traj-tag-selected">SELECTED</span>`;
+          }
+
+          const biasBadge = `<span class="badge ${milestone.prediction === 'Profit' ? 'badge-profit' : milestone.prediction === 'Loss' ? 'badge-loss' : 'badge-neutral'}">${milestone.prediction}</span>`;
+
+          tr.innerHTML = `
+            <td>
+              <div style="font-weight: 700; color: #fff;">${milestone.day_label}</div>
+              <div style="margin-top: 0.2rem;">${horizonBadge}</div>
+            </td>
+            <td style="color: ${retColor}; font-weight: 700; font-size: 0.92rem;">
+              ${retSign}${milestone.expected_return_pct.toFixed(2)}%
+            </td>
+            <td style="font-weight: 600;">
+              ${curSym}${milestone.projected_price.toFixed(2)}
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 0.4rem;">
+                <span style="font-weight: 600;">${probProfit}%</span>
+                <div style="flex: 1; min-width: 45px; height: 5px; background: #334155; border-radius: 9999px; overflow: hidden;">
+                  <div style="width: ${probProfit}%; height: 100%; background: var(--profit);"></div>
+                </div>
+              </div>
+            </td>
+            <td>${biasBadge}</td>
+            <td style="color: var(--muted); font-size: 0.8rem;">${milestone.phase}</td>
+            <td>
+              <button type="button" class="traj-apply-btn" onclick="setHorizonPreset(${milestone.day})">
+                Test ${milestone.day}D
+              </button>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+      }
+    }
 
       document.getElementById("txtLoss").textContent = pLoss + "%";
       document.getElementById("txtNeutral").textContent = pNeutral + "%";

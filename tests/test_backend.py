@@ -25,6 +25,28 @@ class TestBackend(unittest.TestCase):
         self.assertIn("return_5d", res)
         self.assertIn("daily_return", res)
         self.assertIn("rsi_14", res)
+        self.assertEqual(res["target_horizon_days"], 5)
+        self.assertIn("optimal_holding", res)
+        self.assertIn("optimal_days", res["optimal_holding"])
+
+    def test_predict_flexible_horizon_and_holding(self):
+        # Test horizon at 14 days
+        res_14d = predict_by_symbol("AAPL", days=14)
+        self.assertEqual(res_14d["target_horizon_days"], 14)
+        self.assertIn("expected_return_pct", res_14d)
+        self.assertIn("target_price", res_14d)
+        self.assertIn("optimal_holding", res_14d)
+        opt = res_14d["optimal_holding"]
+        self.assertGreaterEqual(opt["optimal_days"], 1)
+        self.assertLessEqual(opt["optimal_days"], 45)
+        self.assertIn("duration_label", opt)
+        self.assertIn("peak_profit_pct", opt)
+        self.assertIn("trajectory", opt)
+        self.assertGreater(len(opt["trajectory"]), 0)
+
+        # Test bounds clipping (e.g. 99 -> 45)
+        res_clipped = predict_by_symbol("AAPL", days=99)
+        self.assertEqual(res_clipped["target_horizon_days"], 45)
 
     def test_predict_symbol_suffix_resolution(self):
         # Should resolve RELIANCE to RELIANCE.NS automatically
