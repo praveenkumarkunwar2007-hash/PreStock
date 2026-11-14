@@ -1289,9 +1289,11 @@
         rationale.bullish_signals.forEach(sig => {
           const div = document.createElement("div");
           div.className = "signal-item";
+          const isDefensive = sig.type && sig.type.includes("No Bullish Confirmation");
+          const tagColor = isDefensive ? "#f59e0b" : "var(--profit)";
           div.innerHTML = `
             <div class="signal-header">
-              <span style="color: var(--profit);">${sig.indicator}</span>
+              <span style="color: ${tagColor};">${sig.indicator}</span>
               <span style="font-size: 0.75rem; color: var(--muted);">${sig.type}</span>
             </div>
             <div class="signal-desc">${sig.detail}</div>
@@ -1299,7 +1301,7 @@
           bullContainer.appendChild(div);
         });
       } else {
-        bullContainer.innerHTML = `<div class="signal-item"><div class="signal-desc">No significant bullish indicators detected for this period.</div></div>`;
+        bullContainer.innerHTML = `<div class="signal-item"><div class="signal-desc">No significant bullish indicators detected. Technical momentum remains in defensive pullback.</div></div>`;
       }
 
       // Update Bearish Signals
@@ -1309,9 +1311,11 @@
         rationale.bearish_signals.forEach(sig => {
           const div = document.createElement("div");
           div.className = "signal-item";
+          const isClean = sig.type && sig.type.includes("Clean Uptrend");
+          const tagColor = isClean ? "var(--profit)" : "var(--loss)";
           div.innerHTML = `
             <div class="signal-header">
-              <span style="color: var(--loss);">${sig.indicator}</span>
+              <span style="color: ${tagColor};">${sig.indicator}</span>
               <span style="font-size: 0.75rem; color: var(--muted);">${sig.type}</span>
             </div>
             <div class="signal-desc">${sig.detail}</div>

@@ -106,6 +106,21 @@ def generate_prediction_rationale(
             "detail": "MACD histogram is negative, reflecting decelerating upward momentum."
         })
 
+    # Constructive diagnostics if a stock is in a full correction or a runaway bull trend
+    if not bullish_signals:
+        bullish_signals.append({
+            "indicator": "Technical Status: Correction / Pullback Phase",
+            "type": "Defensive Structure (No Bullish Confirmation)",
+            "detail": f"All core momentum and trend indicators (RSI at {rsi:.1f}, price below key moving averages, negative MACD) are currently positioned defensively. A decisive reclaim of the 20-day SMA and RSI crossing above 50 with volume are required to signal a bullish turnaround."
+        })
+
+    if not bearish_signals:
+        bearish_signals.append({
+            "indicator": "Technical Status: Strong Trend Continuation",
+            "type": "Clean Uptrend (No Major Headwinds)",
+            "detail": "Price holds clean structural support above moving averages with no immediate overhead distribution, breakdown patterns, or overbought divergence observed."
+        })
+
     # Narrative Summary Construction
     prob_loss = probabilities.get("Loss", 0.0) * 100
     prob_neutral = probabilities.get("Neutral", 0.0) * 100
