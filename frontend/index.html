@@ -936,12 +936,13 @@
   <div id="apiOfflineBanner" style="display: none; background: rgba(239, 68, 68, 0.12); border: 1px solid var(--loss); border-radius: 0.5rem; padding: 0.75rem 1.15rem; margin-bottom: 1.25rem; color: #fecaca; font-size: 0.88rem; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
     <div>
       <strong style="color: #f87171;">⚠️ Backend Server Not Detected:</strong>
-      Cannot connect to <code style="color: var(--accent); background: #0f172a; padding: 0.15rem 0.35rem; border-radius: 0.25rem;">http://localhost:8000</code>.
-      Make sure the server is running, or double-click <code style="color: var(--accent); background: #0f172a; padding: 0.15rem 0.35rem; border-radius: 0.25rem;">start_server.bat</code>.
+      Cannot reach API endpoint (<code id="offlineTargetUrl" style="color: var(--accent); background: #0f172a; padding: 0.15rem 0.35rem; border-radius: 0.25rem;">same-origin</code>).
+      Make sure the backend is responding, or click <strong>Use This Website</strong> if hosted online.
     </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <button onclick="retryConnection()" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: var(--loss); color: #fff; border-radius: 0.35rem; margin: 0; cursor: pointer;">⚡ Reconnect</button>
-      <button onclick="promptApiUrl()" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #1e293b; color: var(--accent); border: 1px solid var(--border); border-radius: 0.35rem; margin: 0; cursor: pointer;">Change URL</button>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" onclick="resetApiToSameOrigin()" style="width: auto !important; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #0284c7; color: #fff; border-radius: 0.35rem; margin: 0; cursor: pointer;">🌐 Use This Website</button>
+      <button type="button" onclick="retryConnection()" style="width: auto !important; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: var(--loss); color: #fff; border-radius: 0.35rem; margin: 0; cursor: pointer;">⚡ Reconnect</button>
+      <button type="button" onclick="promptApiUrl()" style="width: auto !important; padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #1e293b; color: var(--accent); border: 1px solid var(--border); border-radius: 0.35rem; margin: 0; cursor: pointer;">Change URL</button>
     </div>
   </div>
 
@@ -1319,6 +1320,13 @@
   </div>
 
   <script>
+    function resetApiToSameOrigin() {
+      localStorage.removeItem("PRESTOCK_API_URL");
+      API_BASE = getApiBase();
+      loadStocks();
+      loadRecommendations(currentRecCat, currentRecMkt, false);
+    }
+
     function getApiBase() {
       const params = new URLSearchParams(window.location.search);
       if (params.get("api")) {
@@ -1326,14 +1334,26 @@
         localStorage.setItem("PRESTOCK_API_URL", val);
         return val;
       }
-      const saved = localStorage.getItem("PRESTOCK_API_URL");
-      if (saved) return saved.replace(/\/$/, "");
 
-      if (window.location.protocol === "file:" || (window.location.port && window.location.port !== "8000" && window.location.port !== "7860")) {
-        return "http://localhost:8000";
+      // If running over HTTP or HTTPS web hosting (Render, Railway, localhost:8000, etc.)
+      if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+        const saved = localStorage.getItem("PRESTOCK_API_URL");
+        if (saved) {
+          // If loaded over HTTPS and saved URL is insecure HTTP (e.g. localhost), remove to prevent mixed-content block
+          if (window.location.protocol === "https:" && saved.startsWith("http://")) {
+            localStorage.removeItem("PRESTOCK_API_URL");
+          } else if (saved.startsWith("http://") || saved.startsWith("https://")) {
+            return saved.replace(/\/$/, "");
+          }
+        }
+        // Always use same-origin relative URLs on web deployments
+        return "";
       }
 
-      return "";
+      // If opened locally via file:// protocol
+      const saved = localStorage.getItem("PRESTOCK_API_URL");
+      if (saved) return saved.replace(/\/$/, "");
+      return "http://localhost:8000";
     }
 
     let API_BASE = getApiBase();
@@ -1432,28 +1452,26 @@
     }
 
     function promptApiUrl() {
-      const current = API_BASE || "http://localhost:8000";
-      const input = prompt("Enter your Backend API URL (e.g., https://your-backend.onrender.com or http://localhost:8000):", current);
+      const defaultVal = API_BASE || (window.location.protocol === "file:" ? "http://localhost:8000" : window.location.origin);
+      const input = prompt("Enter your Backend API URL (leave blank to use this website's origin):", defaultVal);
       if (input !== null) {
         const cleaned = input.trim().replace(/\/$/, "");
-        localStorage.setItem("PRESTOCK_API_URL", cleaned);
-        API_BASE = cleaned;
+        if (!cleaned || cleaned === window.location.origin) {
+          localStorage.removeItem("PRESTOCK_API_URL");
+          API_BASE = getApiBase();
+        } else {
+          localStorage.setItem("PRESTOCK_API_URL", cleaned);
+          API_BASE = cleaned;
+        }
         loadStocks();
         loadRecommendations(currentRecCat, currentRecMkt, false);
       }
     }
 
     async function loadStocks() {
-      let displayUrl = API_BASE || "localhost:8000";
-      try {
-        if (API_BASE) {
-          displayUrl = (new URL(API_BASE, window.location.href)).host;
-        } else {
-          displayUrl = window.location.host || "localhost:8000";
-        }
-      } catch (e) {
-        displayUrl = API_BASE || "localhost:8000";
-      }
+      let displayUrl = API_BASE ? (new URL(API_BASE, window.location.href)).host : (window.location.host || "same-origin");
+      const offlineUrlEl = document.getElementById("offlineTargetUrl");
+      if (offlineUrlEl) offlineUrlEl.textContent = displayUrl;
 
       const statusEl = document.getElementById("apiStatus");
       const banner = document.getElementById("apiOfflineBanner");
