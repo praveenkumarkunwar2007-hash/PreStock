@@ -1,7 +1,7 @@
 # AI Stock Predictor
 
 An end-to-end Machine Learning pipeline and FastAPI application predicting 5-day stock movement (**Loss**, **Neutral**, **Profit**) across Indian (NSE/BSE) and US (NASDAQ/NYSE) markets using technical indicators and an optimized XGBoost classifier.
-
+## Link:-  https://prestock-ai-5lny.onrender.com/#predictor
 ---
 
 ## 📁 Project Architecture
