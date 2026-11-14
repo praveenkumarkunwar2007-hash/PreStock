@@ -172,22 +172,82 @@ class StockDataService:
         results: List[Dict[str, Any]] = []
         seen = set()
 
-        # 1. Search local tracked stocks first
+        q_upper = q_clean.upper()
+
+        # 1. Proactive Benchmark & Major Indian Index/Equity matching
+        if "NIFTY" in q_upper:
+            if "NIFTY.NS" not in seen:
+                results.append({
+                    "symbol": "NIFTY.NS",
+                    "name": "NIFTY 50 (National Stock Exchange Benchmark Index)",
+                    "exchange": "NSE",
+                    "market": "India",
+                    "type": "Benchmark Index",
+                    "is_local": False
+                })
+                seen.add("NIFTY.NS")
+            if "NIFTYBEES.NS" not in seen:
+                results.append({
+                    "symbol": "NIFTYBEES.NS",
+                    "name": "Nippon India Nifty 50 BeES ETF",
+                    "exchange": "NSE",
+                    "market": "India",
+                    "type": "Index ETF",
+                    "is_local": False
+                })
+                seen.add("NIFTYBEES.NS")
+            if "BANKNIFTY.NS" not in seen and ("BANK" in q_upper or q_upper == "NIFTY"):
+                results.append({
+                    "symbol": "BANKNIFTY.NS",
+                    "name": "NIFTY Bank (NSE Banking Sector Index)",
+                    "exchange": "NSE",
+                    "market": "India",
+                    "type": "Sector Index",
+                    "is_local": False
+                })
+                seen.add("BANKNIFTY.NS")
+
+        if "SENSEX" in q_upper:
+            if "SENSEX.BO" not in seen:
+                results.append({
+                    "symbol": "SENSEX.BO",
+                    "name": "BSE SENSEX (Bombay Stock Exchange Benchmark Index)",
+                    "exchange": "BSE",
+                    "market": "India",
+                    "type": "Benchmark Index",
+                    "is_local": False
+                })
+                seen.add("SENSEX.BO")
+
+        if "ZOMATO" in q_upper:
+            if "ZOMATO.NS" not in seen:
+                results.append({
+                    "symbol": "ZOMATO.NS",
+                    "name": "Zomato Limited (now Eternal Ltd - ETERNAL.NS)",
+                    "exchange": "NSE",
+                    "market": "India",
+                    "type": "Tracked Equity",
+                    "is_local": False
+                })
+                seen.add("ZOMATO.NS")
+
+        # 2. Search local tracked stocks next
         local_df = self.get_all_features_df()
         if not local_df.empty:
             matches = local_df[local_df["Symbol"].astype(str).str.upper().str.contains(q_clean.upper())]
             for sym, group in matches.groupby("Symbol"):
                 sym_str = str(sym).upper()
-                last_r = group.iloc[-1]
-                results.append({
-                    "symbol": sym_str,
-                    "name": f"{sym_str} (Tracked Stock)",
-                    "exchange": str(last_r.get("Exchange", "Market")),
-                    "market": str(last_r.get("Market", "Tracked")),
-                    "type": "Tracked",
-                    "is_local": True
-                })
-                seen.add(sym_str)
+                if sym_str not in seen:
+                    last_r = group.iloc[-1]
+                    results.append({
+                        "symbol": sym_str,
+                        "name": f"{sym_str} (Tracked Stock)",
+                        "exchange": str(last_r.get("Exchange", "Market")),
+                        "market": str(last_r.get("Market", "Tracked")),
+                        "type": "Tracked",
+                        "is_local": True
+                    })
+                    seen.add(sym_str)
 
         # 2. Query Groww Public Search for Indian equities & recent IPOs (e.g. Swiggy, Hyundai, Waaree, Tata Tech)
         try:
@@ -319,9 +379,7 @@ class StockDataService:
             logger.debug(f"Live online fetch failed for {clean_sym}: {e}")
 
         # 2. Resilient fallback path: In-memory cached features or local dataset
-        candidates = [clean_sym]
-        if "." not in clean_sym:
-            candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
+        candidates = online_stock_fetcher._resolve_candidates(clean_sym)
 
         for cand in candidates:
             if cand in self._latest_features_cache:
@@ -365,9 +423,7 @@ class StockDataService:
             logger.debug(f"Live online history failed for {clean_sym}: {e}")
 
         # 2. Resilient fallback path: In-memory pre-computed history cache
-        candidates = [clean_sym]
-        if "." not in clean_sym:
-            candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
+        candidates = online_stock_fetcher._resolve_candidates(clean_sym)
 
         # Instant O(1) retrieval from pre-computed history cache
         for cand in candidates:

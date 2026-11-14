@@ -48,7 +48,7 @@ def predict_by_symbol(
     if not latest_features:
         raise HTTPException(
             status_code=404,
-            detail=f"Stock symbol '{symbol}' not found in local feature datasets."
+            detail=f"Stock or index symbol '{symbol}' not found in online market feeds or local datasets."
         )
 
     try:

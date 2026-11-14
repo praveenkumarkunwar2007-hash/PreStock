@@ -17,12 +17,53 @@ logger = logging.getLogger(__name__)
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
+# Comprehensive dictionary mapping common Indian & global benchmarks, aliases, and rebranded equities
+ALIAS_MAP: Dict[str, str] = {
+    # Indian Benchmark & Sectoral Indices
+    "NIFTY": "^NSEI",
+    "NIFTY.NS": "^NSEI",
+    "NIFTY50": "^NSEI",
+    "NIFTY50.NS": "^NSEI",
+    "NIFTY 50": "^NSEI",
+    "NIFTY 50.NS": "^NSEI",
+    "CNXNIFTY": "^NSEI",
+    "GIFTNIFTY": "^NSEI",
+    "NIFTYBEES": "NIFTYBEES.NS",
+    "NIFTYBEES.NS": "NIFTYBEES.NS",
+    "BANKNIFTY": "^NSEBANK",
+    "BANKNIFTY.NS": "^NSEBANK",
+    "NIFTYBANK": "^NSEBANK",
+    "NIFTYBANK.NS": "^NSEBANK",
+    "BANKBEES": "BANKBEES.NS",
+    "BANKBEES.NS": "BANKBEES.NS",
+    "NIFTYIT": "^CNXIT",
+    "NIFTYIT.NS": "^CNXIT",
+    "SENSEX": "^BSESN",
+    "SENSEX.BO": "^BSESN",
+    "BSESENSEX": "^BSESN",
+    "MIDCPNIFTY": "NIFTY_MIDCAP_100.NS",
+
+    # Rebranded & Demerged Indian Equities
+    "ZOMATO": "ETERNAL.NS",
+    "ZOMATO.NS": "ETERNAL.NS",
+    "TATAMOTORS": "TMCV.NS",
+    "TATAMOTORS.NS": "TMCV.NS",
+    "TATAMOTOR": "TMCV.NS",
+    "TATAMOTORS.BO": "TMPV.BO",
+
+    # Global Major Indices
+    "SP500": "^GSPC",
+    "S&P500": "^GSPC",
+    "NASDAQ": "^IXIC",
+    "DOW": "^DJI",
+}
+
 
 class OnlineStockFetcher:
     """
     High-performance online stock market fetcher with multiple fallback sources:
     1. Direct Yahoo Finance v8 Chart JSON (instant sub-second OHLCV & real-time quotes)
-    2. Groww Public Quotes API (for live Indian NSE/BSE equities & IPOs)
+    2. Groww Public Quotes & Search API (for live Indian NSE/BSE equities & IPOs)
     3. yfinance engine (standard resilience fallback)
     """
 
@@ -37,6 +78,62 @@ class OnlineStockFetcher:
         item = self._cache.get(clean)
         if item and (time.time() - item["fetched_at"] < self.cache_ttl):
             return item
+        return None
+
+    def _resolve_candidates(self, clean_sym: str) -> List[str]:
+        candidates: List[str] = []
+
+        # 1. Direct match in ALIAS_MAP
+        if clean_sym in ALIAS_MAP:
+            candidates.append(ALIAS_MAP[clean_sym])
+
+        # 2. Check stripped base if ends in .NS or .BO
+        if clean_sym.endswith(".NS") or clean_sym.endswith(".BO"):
+            base = clean_sym[:-3]
+            if base in ALIAS_MAP and ALIAS_MAP[base] not in candidates:
+                candidates.insert(0, ALIAS_MAP[base])
+
+        # 3. Add clean_sym itself
+        if clean_sym not in candidates:
+            candidates.append(clean_sym)
+
+        # 4. If no dot in symbol, add Indian exchange suffixes
+        if "." not in clean_sym and not clean_sym.startswith("^"):
+            candidates.append(f"{clean_sym}.NS")
+            candidates.append(f"{clean_sym}.BO")
+
+        # 5. Dynamic Groww resolution for Indian equities / IPOs
+        if time.time() >= self._circuit_open_until:
+            try:
+                groww_resolved = self._resolve_via_groww_search(clean_sym)
+                if groww_resolved and groww_resolved not in candidates:
+                    candidates.append(groww_resolved)
+            except Exception:
+                pass
+
+        return candidates
+
+    def _resolve_via_groww_search(self, query: str) -> Optional[str]:
+        clean_q = query.replace(".NS", "").replace(".BO", "").strip()
+        url = f"https://groww.in/v1/api/search/v1/entity?app=false&entity_type=stocks&page=0&q={urllib.parse.quote(clean_q)}&size=3"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                data = json.loads(resp.read().decode())
+                for item in data.get("content", []):
+                    nse = item.get("nse_scrip_code")
+                    if nse:
+                        nse_clean = nse.upper().strip()
+                        if nse_clean in ALIAS_MAP:
+                            return ALIAS_MAP[nse_clean]
+                        return f"{nse_clean}.NS"
+                    bse = item.get("bse_scrip_code")
+                    if bse:
+                        return f"{bse}.BO"
+        except (urllib.error.URLError, socket.timeout, TimeoutError):
+            self._circuit_open_until = time.time() + 15.0
+        except Exception:
+            pass
         return None
 
     def fetch_live_data(self, symbol: str) -> Optional[Dict[str, Any]]:
@@ -55,15 +152,12 @@ class OnlineStockFetcher:
         if time.time() < self._circuit_open_until:
             return None
 
-        # Resolve candidates (e.g. RELIANCE -> RELIANCE.NS, RELIANCE.BO)
-        candidates = [clean_sym]
-        if "." not in clean_sym:
-            # Common Indian equity aliases
-            candidates.extend([f"{clean_sym}.NS", f"{clean_sym}.BO"])
+        # Resolve candidate tickers
+        candidates = self._resolve_candidates(clean_sym)
 
         for cand in candidates:
             # Strategy 1: Direct Yahoo v8 Chart API (ultra fast & global coverage)
-            data = self._fetch_via_yahoo_chart(cand)
+            data = self._fetch_via_yahoo_chart(cand, clean_sym)
             if data is not None:
                 self._save_to_cache(clean_sym, cand, data)
                 return data
@@ -72,12 +166,12 @@ class OnlineStockFetcher:
             if time.time() < self._circuit_open_until:
                 return None
 
-            # Strategy 2: For Indian equities, try Groww + Yahoo fallback
+            # Strategy 2: For Indian equities, try Groww quote + Yahoo fallback
             if cand.endswith(".NS") or "." not in clean_sym:
                 base_ticker = clean_sym.replace(".NS", "").replace(".BO", "")
                 groww_data = self._fetch_groww_quote(base_ticker)
                 if groww_data:
-                    yf_data = self._fetch_via_yfinance(cand)
+                    yf_data = self._fetch_via_yfinance(cand, clean_sym)
                     if yf_data is not None:
                         if "Close" in yf_data["features"] and groww_data.get("ltp"):
                             yf_data["features"]["Close"] = float(groww_data["ltp"])
@@ -89,14 +183,14 @@ class OnlineStockFetcher:
                 return None
 
             # Strategy 3: Standard yfinance fallback
-            yf_data = self._fetch_via_yfinance(cand)
+            yf_data = self._fetch_via_yfinance(cand, clean_sym)
             if yf_data is not None:
                 self._save_to_cache(clean_sym, cand, yf_data)
                 return yf_data
 
         return None
 
-    def _fetch_via_yahoo_chart(self, cand_sym: str) -> Optional[Dict[str, Any]]:
+    def _fetch_via_yahoo_chart(self, cand_sym: str, requested_sym: str = "") -> Optional[Dict[str, Any]]:
         """Fetch 6 months of daily candles directly from Yahoo v8 chart endpoint."""
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(cand_sym)}?interval=1d&range=6mo"
         try:
@@ -137,7 +231,8 @@ class OnlineStockFetcher:
                 return None
 
             df["Adj Close"] = df["Close"]
-            df["Symbol"] = cand_sym
+            display_sym = requested_sym or cand_sym
+            df["Symbol"] = display_sym
 
             # Compute technical indicators using the model feature pipeline
             feat_df = calculate_features(df, verbose=False, min_rows=5)
@@ -146,7 +241,8 @@ class OnlineStockFetcher:
 
             # Get latest row
             last_row = feat_df.iloc[-1].to_dict()
-            last_row["Symbol"] = cand_sym
+            last_row["Symbol"] = display_sym
+            last_row["canonical_symbol"] = cand_sym
             last_close = float(last_row.get("Close", 1.0) or 1.0)
             if last_close <= 0:
                 last_close = 1.0
@@ -219,8 +315,10 @@ class OnlineStockFetcher:
         except Exception:
             return None
 
-    def _fetch_via_yfinance(self, cand_sym: str) -> Optional[Dict[str, Any]]:
+    def _fetch_via_yfinance(self, cand_sym: str, requested_sym: str = "") -> Optional[Dict[str, Any]]:
         """Fallback live downloader using yfinance."""
+        if time.time() < self._circuit_open_until:
+            return None
         try:
             ticker = yf.Ticker(cand_sym)
             hist = ticker.history(period="6mo", interval="1d").reset_index()
@@ -232,14 +330,16 @@ class OnlineStockFetcher:
 
             if "Adj Close" not in hist.columns:
                 hist["Adj Close"] = hist["Close"]
-            hist["Symbol"] = cand_sym
+            display_sym = requested_sym or cand_sym
+            hist["Symbol"] = display_sym
 
             feat_df = calculate_features(hist, verbose=False, min_rows=5)
             if feat_df.empty:
                 return None
 
             last_row = feat_df.iloc[-1].to_dict()
-            last_row["Symbol"] = cand_sym
+            last_row["Symbol"] = display_sym
+            last_row["canonical_symbol"] = cand_sym
             last_close = float(last_row.get("Close", 1.0) or 1.0)
             if last_close <= 0:
                 last_close = 1.0
@@ -288,6 +388,12 @@ class OnlineStockFetcher:
         self._cache[cand] = data
         if cand.endswith(".NS"):
             self._cache[cand[:-3]] = data
+        if clean_sym in ALIAS_MAP:
+            self._cache[ALIAS_MAP[clean_sym]] = data
+        # Reverse alias caching
+        for k, v in ALIAS_MAP.items():
+            if v == cand or v == clean_sym:
+                self._cache[k] = data
 
 
 online_stock_fetcher = OnlineStockFetcher(cache_ttl_seconds=180)

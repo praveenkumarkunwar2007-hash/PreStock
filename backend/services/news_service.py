@@ -25,6 +25,18 @@ COMPANY_NAMES = {
     "INFY.BO": "Infosys",
     "HDFCBANK.NS": "HDFC Bank",
     "ICICIBANK.NS": "ICICI Bank",
+    "NIFTY": "Nifty 50 NSE India",
+    "NIFTY.NS": "Nifty 50 NSE India",
+    "^NSEI": "Nifty 50 NSE India",
+    "BANKNIFTY": "Bank Nifty NSE India",
+    "BANKNIFTY.NS": "Bank Nifty NSE India",
+    "^NSEBANK": "Bank Nifty NSE India",
+    "SENSEX": "BSE Sensex India",
+    "SENSEX.BO": "BSE Sensex India",
+    "^BSESN": "BSE Sensex India",
+    "ZOMATO": "Zomato Eternal India",
+    "ZOMATO.NS": "Zomato Eternal India",
+    "SWIGGY.NS": "Swiggy India",
 }
 
 POSITIVE_WORDS = {
