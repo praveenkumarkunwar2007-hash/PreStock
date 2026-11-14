@@ -46,6 +46,7 @@ class NewsService:
     def __init__(self):
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._cache_ttl = 600  # 10 minutes cache
+        self._offline_until: float = 0
 
     def _get_search_query(self, symbol: str) -> str:
         clean = symbol.upper().strip()
@@ -76,13 +77,33 @@ class NewsService:
             "score": pos - neg
         }
 
-    def fetch_stock_news(self, symbol: str, limit: int = 6) -> Dict[str, Any]:
+    def _build_fallback(self, symbol: str) -> Dict[str, Any]:
+        encoded = urllib.parse.quote(self._get_search_query(symbol))
+        return {
+            "symbol": symbol.upper().strip(),
+            "overall_sentiment": "Neutral",
+            "sentiment_class": "pred-neutral",
+            "articles": [{
+                "title": f"Recent financial headlines for {symbol} can be viewed directly on Google Finance & News.",
+                "source": "Market Feed",
+                "link": f"https://www.google.com/search?q={encoded}",
+                "published": "Live",
+                "sentiment": "Neutral",
+                "badge_class": "badge-neutral"
+            }]
+        }
+
+    def fetch_stock_news(self, symbol: str, limit: int = 6, timeout: float = 1.5) -> Dict[str, Any]:
         now = time.time()
         cache_key = symbol.upper().strip()
         if cache_key in self._cache:
             entry = self._cache[cache_key]
             if now - entry["cached_at"] < self._cache_ttl:
                 return entry["data"]
+
+        # Circuit-breaker: If external network is unreachable, return fallback immediately
+        if now < self._offline_until:
+            return self._build_fallback(symbol)
 
         query = self._get_search_query(symbol)
         encoded_query = urllib.parse.quote(query)
@@ -96,7 +117,7 @@ class NewsService:
                 rss_url,
                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
             )
-            with urllib.request.urlopen(req, timeout=6) as response:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
                 content = response.read()
 
             root = ET.fromstring(content)
@@ -132,7 +153,8 @@ class NewsService:
                 })
 
         except Exception:
-            pass
+            # Trip circuit breaker for 60 seconds
+            self._offline_until = now + 60.0
 
         if not articles:
             articles = [{

@@ -1,7 +1,7 @@
 import unittest
 from backend.services.stock_data import stock_data_service
 from backend.routes.predict import predict_by_symbol, predict_custom, CustomFeatureInput
-from backend.routes.stocks import get_all_stocks, get_stock_history, get_stock_news, search_stocks
+from backend.routes.stocks import get_all_stocks, get_stock_history, get_stock_news, search_stocks, get_recommendations
 
 
 class TestBackend(unittest.TestCase):
@@ -76,6 +76,15 @@ class TestBackend(unittest.TestCase):
         self.assertGreaterEqual(len(res), 1)
         symbols = [r["symbol"] for r in res]
         self.assertIn("AAPL", symbols)
+
+    def test_recommendations_route(self):
+        res = get_recommendations(category="all", market="all", limit=5)
+        self.assertIn("recommendations", res)
+        self.assertIn("total_scanned", res)
+        self.assertGreater(len(res["recommendations"]), 0)
+        top = res["recommendations"][0]
+        self.assertIn("reasons_for_profit", top)
+        self.assertIn("profit_score", top)
 
 
 if __name__ == "__main__":

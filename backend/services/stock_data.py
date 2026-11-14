@@ -13,6 +13,7 @@ DATA_DIR = BASE_DIR / "datasets"
 
 INDIAN_FEATURES_FILE = DATA_DIR / "india" / "indian_features.csv"
 US_FEATURES_FILE = DATA_DIR / "usa" / "us_features.csv"
+IPO_FEATURES_FILE = DATA_DIR / "ipos" / "ipo_features.csv"
 
 
 class StockDataService:
@@ -23,7 +24,7 @@ class StockDataService:
 
     def get_all_features_df(self) -> pd.DataFrame:
         current_mtimes = {}
-        for p in [INDIAN_FEATURES_FILE, US_FEATURES_FILE]:
+        for p in [INDIAN_FEATURES_FILE, US_FEATURES_FILE, IPO_FEATURES_FILE]:
             if p.exists():
                 current_mtimes[p] = p.stat().st_mtime
 
@@ -35,6 +36,8 @@ class StockDataService:
             dfs.append(pd.read_csv(INDIAN_FEATURES_FILE))
         if US_FEATURES_FILE.exists():
             dfs.append(pd.read_csv(US_FEATURES_FILE))
+        if IPO_FEATURES_FILE.exists():
+            dfs.append(pd.read_csv(IPO_FEATURES_FILE))
         if not dfs:
             return pd.DataFrame()
         combined = pd.concat(dfs, ignore_index=True)
