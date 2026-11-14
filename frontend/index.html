@@ -1062,6 +1062,7 @@
         <button id="predictBtn" onclick="runPrediction()">Run Prediction</button>
 
         <div id="stockMetrics" style="margin-top: 1rem;">
+          <div class="metric-row"><span>Data Feed:</span><span class="metric-val" id="metricSource" style="color: var(--profit); font-size: 0.78rem;">🟢 Live Online Feeds</span></div>
           <div class="metric-row"><span>Latest Close:</span><span class="metric-val" id="metricClose">-</span></div>
           <div class="metric-row"><span>1-Day Return:</span><span class="metric-val" id="metricReturn1D">-</span></div>
           <div class="metric-row"><span>5-Day Return:</span><span class="metric-val" id="metricReturn5D">-</span></div>
@@ -1722,7 +1723,12 @@
           updateRationaleUI(data.rationale);
           renderOptimalHoldingUI(data);
 
-          if (data.latest_close) document.getElementById("metricClose").textContent = data.latest_close.toFixed(2);
+          const curSym = (symbol && (symbol.endsWith(".NS") || symbol.endsWith(".BO"))) ? "₹" : "$";
+          if (data.latest_close) document.getElementById("metricClose").textContent = `${curSym}${data.latest_close.toFixed(2)}`;
+          if (data.data_source) {
+            const srcEl = document.getElementById("metricSource");
+            if (srcEl) srcEl.textContent = `🟢 ${data.data_source}`;
+          }
           if (data.daily_return !== undefined) {
             const ret1 = (data.daily_return * 100).toFixed(2);
             const isPos = data.daily_return >= 0;
@@ -1782,8 +1788,13 @@
           updateChart(histData.history, symbol);
           if (histData.history && histData.history.length > 0) {
             const last = histData.history[histData.history.length - 1];
-            document.getElementById("metricClose").textContent = last.close.toFixed(2);
+            const curSym = (symbol && (symbol.endsWith(".NS") || symbol.endsWith(".BO"))) ? "₹" : "$";
+            document.getElementById("metricClose").textContent = `${curSym}${last.close.toFixed(2)}`;
             document.getElementById("metricRSI").textContent = last.rsi_14.toFixed(2);
+            if (histData.source) {
+              const srcEl = document.getElementById("metricSource");
+              if (srcEl) srcEl.textContent = `🟢 ${histData.source}`;
+            }
             if (last.volatility_20d !== undefined && last.volatility_20d !== null) {
               document.getElementById("metricVol").textContent = (last.volatility_20d * 100).toFixed(1) + "%";
             }

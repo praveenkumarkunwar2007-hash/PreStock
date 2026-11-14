@@ -63,7 +63,8 @@ def get_stock_history(symbol: str, limit: int = 30):
     return {
         "symbol": symbol.upper(),
         "count": len(history),
-        "history": history
+        "history": history,
+        "source": "Online Market Feeds"
     }
 
 

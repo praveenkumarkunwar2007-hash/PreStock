@@ -84,7 +84,8 @@ def predict_by_symbol(
             "expected_return_pct": holding_analysis["expected_return_pct"],
             "target_price": holding_analysis["target_price"],
             "optimal_holding": holding_analysis["optimal_holding"],
-            "news_sentiment": market_sentiment
+            "news_sentiment": market_sentiment,
+            "data_source": latest_features.get("data_source", "Online Live Feeds")
         }
 
         # Generate interpretability rationale calibrated to this horizon
