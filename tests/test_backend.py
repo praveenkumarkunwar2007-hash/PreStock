@@ -1,6 +1,6 @@
 import unittest
 from backend.services.stock_data import stock_data_service
-from backend.routes.predict import predict_by_symbol, predict_custom, CustomFeatureInput, post_groq_ai_analysis, GroqAnalysisRequest
+from backend.routes.predict import predict_by_symbol, predict_custom, CustomFeatureInput
 from backend.routes.stocks import get_all_stocks, get_stock_history, get_stock_news, search_stocks, get_recommendations
 
 
@@ -108,22 +108,6 @@ class TestBackend(unittest.TestCase):
         self.assertIn("reasons_for_profit", top)
         self.assertIn("profit_score", top)
 
-
-    def test_predict_includes_groq_ai_analysis(self):
-        res = predict_by_symbol("AAPL")
-        self.assertIn("ai_analysis", res)
-        self.assertIn("ai_analysis", res["ai_analysis"])
-        self.assertIn("provider", res["ai_analysis"])
-        self.assertTrue(len(res["ai_analysis"]["ai_analysis"]) > 50)
-
-    def test_post_groq_ai_analysis_endpoint(self):
-        req = GroqAnalysisRequest(symbol="AAPL", days=7, user_prompt="What is the short term price target?")
-        res = post_groq_ai_analysis(req)
-        self.assertEqual(res["symbol"], "AAPL")
-        self.assertEqual(res["days"], 7)
-        self.assertIn("ai_analysis", res)
-        self.assertIn("provider", res)
-        self.assertTrue(len(res["ai_analysis"]) > 50)
 
 if __name__ == "__main__":
     unittest.main()

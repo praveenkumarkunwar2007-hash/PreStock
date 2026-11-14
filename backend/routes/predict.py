@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Header
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.services.predictor import predictor
@@ -7,7 +7,6 @@ from backend.services.stock_data import stock_data_service
 from backend.services.news_service import news_service
 from backend.services.rationale import generate_prediction_rationale
 from backend.services.holding_calculator import holding_calculator
-from backend.services.groq_service import groq_service
 
 router = APIRouter(prefix="/predict", tags=["Prediction"])
 
@@ -99,17 +98,6 @@ def predict_by_symbol(
         )
         result["rationale"] = rationale
 
-        # Generate Groq AI Quantitative Analyst investment memo
-        headlines = [item.get("title", "") for item in news_data.get("news", []) if isinstance(item, dict)]
-        ai_memo = groq_service.generate_ai_analysis(
-            symbol=resolved_symbol,
-            features=latest_features,
-            prediction_data=result,
-            news_sentiment=market_sentiment,
-            news_headlines=headlines
-        )
-        result["ai_analysis"] = ai_memo
-
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -152,76 +140,6 @@ def predict_custom(payload: CustomFeatureInput):
             probabilities=result["probabilities"]
         )
         result["rationale"] = rationale
-
-        # Generate Groq AI Quantitative Analyst investment memo for custom features
-        ai_memo = groq_service.generate_ai_analysis(
-            symbol="CUSTOM",
-            features=feature_dict,
-            prediction_data=result,
-            news_sentiment="Neutral",
-            news_headlines=[]
-        )
-        result["ai_analysis"] = ai_memo
-
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-class GroqAnalysisRequest(BaseModel):
-    symbol: str = Field(..., description="Stock or index ticker symbol")
-    days: Optional[int] = Field(5, description="Prediction horizon (1-45 days)")
-    user_prompt: Optional[str] = Field(None, description="Custom prompt or question for Groq AI")
-    groq_api_key: Optional[str] = Field(None, description="Optional custom free Groq API key")
-
-
-@router.post("/ai-analysis")
-def post_groq_ai_analysis(
-    req: GroqAnalysisRequest,
-    x_groq_api_key: Optional[str] = Header(None, alias="X-Groq-Api-Key")
-):
-    """
-    Generate deep AI market analysis powered by Groq (LLaMA-3.3-70B).
-    Accepts user API key via header or body (or uses default free tier).
-    """
-    symbol = req.symbol.strip().upper()
-    days = max(1, min(int(req.days or 5), 45))
-    header_key = x_groq_api_key if isinstance(x_groq_api_key, str) else None
-    effective_key = req.groq_api_key or header_key
-
-    pred_res = predict_by_symbol(symbol=symbol, days=days)
-    latest_features = stock_data_service.get_latest_features(symbol) or {}
-    news_data = news_service.fetch_stock_news(symbol, limit=4)
-    headlines = [item.get("title", "") for item in news_data.get("news", []) if isinstance(item, dict)]
-
-    ai_result = groq_service.generate_ai_analysis(
-        symbol=symbol,
-        features=latest_features,
-        prediction_data=pred_res,
-        news_sentiment=pred_res.get("news_sentiment", "Neutral"),
-        news_headlines=headlines,
-        custom_question=req.user_prompt,
-        api_key=effective_key
-    )
-    return {
-        "symbol": symbol,
-        "days": days,
-        "prediction": pred_res.get("prediction"),
-        "confidence": pred_res.get("confidence"),
-        "optimal_holding": pred_res.get("optimal_holding"),
-        **ai_result
-    }
-
-
-@router.get("/ai-analysis/{symbol}")
-def get_groq_ai_analysis(
-    symbol: str,
-    days: int = Query(5, ge=1, le=45),
-    question: Optional[str] = Query(None),
-    x_groq_api_key: Optional[str] = Header(None, alias="X-Groq-Api-Key")
-):
-    """
-    GET endpoint for Groq AI analysis for a given stock or index.
-    """
-    req = GroqAnalysisRequest(symbol=symbol, days=days, user_prompt=question)
-    return post_groq_ai_analysis(req, x_groq_api_key=x_groq_api_key)
