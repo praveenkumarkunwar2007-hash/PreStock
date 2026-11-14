@@ -1321,10 +1321,22 @@
   </div>
 
   <script>
-    function resetApiToSameOrigin() {
+    let consecutiveOfflineFailures = 0;
+    let missedHealthChecks = 0;
+
+    async function resetApiToSameOrigin() {
       localStorage.removeItem("PRESTOCK_API_URL");
       API_BASE = getApiBase();
-      loadStocks();
+      consecutiveOfflineFailures = 0;
+      missedHealthChecks = 0;
+      const banner = document.getElementById("apiOfflineBanner");
+      if (banner) banner.style.display = "none";
+      const statusEl = document.getElementById("apiStatus");
+      if (statusEl) {
+        statusEl.className = "status-badge status-connecting";
+        statusEl.textContent = "API: Connecting...";
+      }
+      await loadStocks(false);
       loadRecommendations(currentRecCat, currentRecMkt, false);
     }
 
@@ -1366,7 +1378,7 @@
     let isApiConnected = false;
 
     // Fast, resilient fetch with timeout to prevent hanging on disconnected backend
-    async function fetchWithTimeout(resource, options = {}, timeoutMs = 3500) {
+    async function fetchWithTimeout(resource, options = {}, timeoutMs = 10000) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -1469,7 +1481,7 @@
       }
     }
 
-    async function loadStocks() {
+    async function loadStocks(forceReset = false) {
       let displayUrl = API_BASE ? (new URL(API_BASE, window.location.href)).host : (window.location.host || "same-origin");
       const offlineUrlEl = document.getElementById("offlineTargetUrl");
       if (offlineUrlEl) offlineUrlEl.textContent = displayUrl;
@@ -1478,10 +1490,13 @@
       const banner = document.getElementById("apiOfflineBanner");
 
       try {
-        statusEl.className = "status-badge status-connecting";
-        statusEl.textContent = "API: Connecting...";
+        if (statusEl) {
+          statusEl.className = "status-badge status-connecting";
+          statusEl.textContent = consecutiveOfflineFailures > 0 ? "API: Waking up instance..." : "API: Connecting...";
+        }
 
-        const res = await fetchWithTimeout(`${API_BASE}/stocks`, {}, 3000);
+        // On cold-starts / cloud web deployments, allow up to 15s before aborting
+        const res = await fetchWithTimeout(`${API_BASE}/stocks`, {}, 15000);
         if (res.ok) {
           const stocks = await res.json();
           const select = document.getElementById("stockSelect");
@@ -1497,10 +1512,14 @@
             select.value = previousVal;
           }
 
+          consecutiveOfflineFailures = 0;
+          missedHealthChecks = 0;
           isApiConnected = true;
-          statusEl.className = "status-badge status-connected";
-          statusEl.textContent = `API: Connected (${displayUrl})`;
-          statusEl.title = "Backend API is online and responding. Click to test connection.";
+          if (statusEl) {
+            statusEl.className = "status-badge status-connected";
+            statusEl.textContent = `API: Connected (${displayUrl})`;
+            statusEl.title = "Backend API is online and responding. Click to test connection.";
+          }
           if (banner) banner.style.display = "none";
 
           startKeepAlivePolling();
@@ -1510,11 +1529,17 @@
           throw new Error("HTTP " + res.status);
         }
       } catch (e) {
+        consecutiveOfflineFailures++;
         isApiConnected = false;
-        statusEl.className = "status-badge status-disconnected";
-        statusEl.textContent = `API: Disconnected (Click to Retry)`;
-        statusEl.title = "Backend server not responding. Click to retry connection.";
-        if (banner) banner.style.display = "flex";
+        if (statusEl) {
+          statusEl.className = "status-badge status-disconnected";
+          statusEl.textContent = `API: Reconnecting (Attempt ${consecutiveOfflineFailures})...`;
+          statusEl.title = "Backend server not responding. Click to retry connection.";
+        }
+        // Only show red offline banner after 2 consecutive failed attempts to avoid flashing during cold starts
+        if (banner && (consecutiveOfflineFailures >= 2 || forceReset)) {
+          banner.style.display = "flex";
+        }
 
         startAutoReconnect();
         return false;
@@ -1522,49 +1547,57 @@
     }
 
     function retryConnection() {
+      const banner = document.getElementById("apiOfflineBanner");
+      if (banner) banner.style.display = "none";
       const statusEl = document.getElementById("apiStatus");
       if (statusEl) {
         statusEl.className = "status-badge status-connecting";
         statusEl.textContent = "API: Re-checking...";
       }
-      loadStocks();
+      consecutiveOfflineFailures = 0;
+      missedHealthChecks = 0;
+      loadStocks(false);
       loadRecommendations(currentRecCat, currentRecMkt, false);
     }
 
     function startAutoReconnect() {
       if (autoReconnectInterval) clearInterval(autoReconnectInterval);
-      // Auto-reconnect poll every 3 seconds until server comes online
+      // Auto-reconnect poll every 3.5 seconds until server comes online
       autoReconnectInterval = setInterval(async () => {
         try {
-          const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 2000);
+          const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 5000);
           if (res.ok) {
             clearInterval(autoReconnectInterval);
             autoReconnectInterval = null;
-            loadStocks();
+            await loadStocks();
             loadRecommendations(currentRecCat, currentRecMkt, false);
           }
         } catch(e) {}
-      }, 3000);
+      }, 3500);
     }
 
     function startKeepAlivePolling() {
       if (autoReconnectInterval) clearInterval(autoReconnectInterval);
       autoReconnectInterval = setInterval(async () => {
         try {
-          const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 2500);
+          const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 6000);
           if (!res.ok) throw new Error();
+          missedHealthChecks = 0;
         } catch(e) {
-          isApiConnected = false;
-          const statusEl = document.getElementById("apiStatus");
-          if (statusEl) {
-            statusEl.className = "status-badge status-disconnected";
-            statusEl.textContent = `API: Disconnected (Click to Retry)`;
+          missedHealthChecks++;
+          if (missedHealthChecks >= 2) {
+            isApiConnected = false;
+            const statusEl = document.getElementById("apiStatus");
+            if (statusEl) {
+              statusEl.className = "status-badge status-disconnected";
+              statusEl.textContent = `API: Disconnected (Click to Retry)`;
+            }
+            const banner = document.getElementById("apiOfflineBanner");
+            if (banner) banner.style.display = "flex";
+            startAutoReconnect();
           }
-          const banner = document.getElementById("apiOfflineBanner");
-          if (banner) banner.style.display = "flex";
-          startAutoReconnect();
         }
-      }, 15000);
+      }, 20000);
     }
 
     function quickSelect(symbol, name) {
@@ -1707,11 +1740,11 @@
 
       try {
         // Fast parallel fetch: prediction calculation is always fetched
-        const predPromise = fetchWithTimeout(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`, {}, 4500);
+        const predPromise = fetchWithTimeout(`${API_BASE}/predict/symbol/${symbol}?days=${safeDays}`, {}, 10000);
 
         // Fetch chart history and live news only when asset changes or full run is requested
         const shouldFetchAsset = !horizonOnly || currentLoadedSymbol !== symbol;
-        const histPromise = shouldFetchAsset ? fetchWithTimeout(`${API_BASE}/stocks/${symbol}/history?limit=30`, {}, 3500) : Promise.resolve(null);
+        const histPromise = shouldFetchAsset ? fetchWithTimeout(`${API_BASE}/stocks/${symbol}/history?limit=30`, {}, 8000) : Promise.resolve(null);
         const newsPromise = shouldFetchAsset ? fetchLiveNews(symbol) : Promise.resolve(null);
 
         const [predRes, histRes] = await Promise.all([predPromise, histPromise]);
@@ -2002,7 +2035,7 @@
       newsGrid.innerHTML = `<div class="news-card"><div class="news-title">Fetching real-time news for ${symbol}...</div></div>`;
 
       try {
-        const res = await fetchWithTimeout(`${API_BASE}/stocks/${symbol}/news?limit=6`, {}, 4000);
+        const res = await fetchWithTimeout(`${API_BASE}/stocks/${symbol}/news?limit=6`, {}, 8000);
         if (!res.ok) throw new Error("Could not fetch news");
         const data = await res.json();
 
